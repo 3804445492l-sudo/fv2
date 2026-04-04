@@ -1,6 +1,3 @@
-local Keys = {["mmnnn185"]=true, ["1357666805"]=true, ["guxuenb"]=true}
-local MaxAttempts = 3
-local Attempts = 0
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -11,11 +8,14 @@ local Lighting = game:GetService("Lighting")
 local ContextActionService = game:GetService("ContextActionService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local VirtualUser = game:GetService("VirtualUser")
+local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
 local IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 local AllConnections = {}
+
+local Cfg = {}
 
 local function SafeConnect(signal, func)
     local conn = signal:Connect(func)
@@ -29,425 +29,481 @@ local function GetCharParts()
     return char, char:FindFirstChild("HumanoidRootPart"), char:FindFirstChildOfClass("Humanoid")
 end
 
+-- 清理旧实例
 for _, v in pairs(CoreGui:GetChildren()) do
-    if v.Name == "FeiGeSystem" or v.Name == "FeiGeIntro" then v:Destroy() end
+    if v.Name == "FeiGeIntro" or v.Name == "FGMobile" then
+        pcall(function() v:Destroy() end)
+    end
+end
+if gethui then
+    for _, v in pairs(gethui():GetChildren()) do
+        if v.Name == "FeiGeIntro" or v.Name == "FGMobile" then
+            pcall(function() v:Destroy() end)
+        end
+    end
 end
 
+-- 防挂机
 SafeConnect(LocalPlayer.Idled, function()
-    pcall(function() VirtualUser:CaptureController() VirtualUser:ClickButton2(Vector2.new()) end)
+    pcall(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end)
 end)
-
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "FeiGeSystem"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.IgnoreGuiInset = true
-if gethui then ScreenGui.Parent = gethui() elseif syn and syn.protect_gui then syn.protect_gui(ScreenGui) ScreenGui.Parent = CoreGui else ScreenGui.Parent = CoreGui end
-
-local Background = Instance.new("Frame", ScreenGui)
-Background.Size = UDim2.new(1, 0, 1, 0)
-Background.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-local Gradient = Instance.new("UIGradient", Background)
-Gradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 0, 100)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 50, 150)), ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 0, 100))}
-Gradient.Rotation = 45
-
-local bgAnim = true
-task.spawn(function() while bgAnim and Background.Parent do local tw = TweenService:Create(Gradient, TweenInfo.new(3, Enum.EasingStyle.Linear), {Rotation = 405}) tw:Play() tw.Completed:Wait() if not bgAnim then break end Gradient.Rotation = 45 end end)
-
-local Main = Instance.new("Frame", Background)
-Main.Size = UDim2.new(0, 420, 0, 280)
-Main.Position = UDim2.new(0.5, -210, 0.5, -140)
-Main.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-Main.BackgroundTransparency = 0.2
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 16)
-local SK = Instance.new("UIStroke", Main) SK.Color = Color3.fromRGB(100, 200, 255) SK.Thickness = 2 SK.Transparency = 0.5
-
-local TitleL = Instance.new("TextLabel", Main) TitleL.Size = UDim2.new(1, 0, 0, 80) TitleL.BackgroundTransparency = 1 TitleL.Text = "飞 哥 脚 本 中 心" TitleL.TextColor3 = Color3.fromRGB(255, 255, 255) TitleL.TextSize = 36 TitleL.Font = Enum.Font.GothamBlack
-
-local InputBox = Instance.new("TextBox", Main) InputBox.Size = UDim2.new(0.85, 0, 0, 50) InputBox.Position = UDim2.new(0.075, 0, 0.35, 0) InputBox.BackgroundColor3 = Color3.fromRGB(50, 50, 60) InputBox.Text = "" InputBox.PlaceholderText = "在此输入卡密..." InputBox.TextColor3 = Color3.fromRGB(255, 255, 255) InputBox.TextSize = 18 InputBox.Font = Enum.Font.Gotham InputBox.ClearTextOnFocus = false Instance.new("UICorner", InputBox).CornerRadius = UDim.new(0, 10) Instance.new("UIStroke", InputBox).Color = Color3.fromRGB(80, 80, 100)
-
-local VerifyBtn = Instance.new("TextButton", Main) VerifyBtn.Size = UDim2.new(0.85, 0, 0, 50) VerifyBtn.Position = UDim2.new(0.075, 0, 0.65, 0) VerifyBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 255) VerifyBtn.Text = "验 证" VerifyBtn.TextColor3 = Color3.fromRGB(255, 255, 255) VerifyBtn.TextSize = 20 VerifyBtn.Font = Enum.Font.GothamBold Instance.new("UICorner", VerifyBtn).CornerRadius = UDim.new(0, 10)
-
-local StatusL = Instance.new("TextLabel", Main) StatusL.Size = UDim2.new(1, 0, 0, 30) StatusL.Position = UDim2.new(0, 0, 0, 240) StatusL.BackgroundTransparency = 1 StatusL.Text = "剩余机会: 3" StatusL.TextColor3 = Color3.fromRGB(150, 150, 150) StatusL.TextSize = 14 StatusL.Font = Enum.Font.Gotham
 
 local function CreateMobileButton(Name, Callback)
     if not IsMobile then return end
-    local MBtn = Instance.new("TextButton", ScreenGui) MBtn.Size = UDim2.new(0, 50, 0, 50) MBtn.Position = UDim2.new(0.9, -60, 0.5, (#ScreenGui:GetChildren() * 60)) MBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) MBtn.BackgroundTransparency = 0.5 MBtn.Text = Name MBtn.TextColor3 = Color3.fromRGB(255, 255, 255) MBtn.TextSize = 18 MBtn.Font = Enum.Font.GothamBold Instance.new("UICorner", MBtn).CornerRadius = UDim.new(0, 25) MBtn.MouseButton1Click:Connect(Callback)
+    local sg = nil
+    local container = gethui and gethui() or CoreGui
+    for _, g in pairs(container:GetChildren()) do
+        if g:IsA("ScreenGui") and g.Name == "FGMobile" then
+            sg = g
+            break
+        end
+    end
+    if not sg then
+        sg = Instance.new("ScreenGui")
+        sg.Name = "FGMobile"
+        sg.ResetOnSpawn = false
+        sg.Parent = container
+    end
+    local btnCount = #sg:GetChildren()
+    local MBtn = Instance.new("TextButton", sg)
+    MBtn.Size = UDim2.new(0, 50, 0, 50)
+    MBtn.Position = UDim2.new(0.9, -60, 0.5, btnCount * 60)
+    MBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    MBtn.BackgroundTransparency = 0.5
+    MBtn.Text = Name
+    MBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    MBtn.TextSize = 18
+    MBtn.Font = Enum.Font.GothamBold
+    Instance.new("UICorner", MBtn).CornerRadius = UDim.new(0, 25)
+    MBtn.Draggable = true
+    SafeConnect(MBtn.MouseButton1Click, Callback)
 end
 
 local function PlayIntro()
     task.spawn(function()
-        local G = Instance.new("ScreenGui") G.Name = "FeiGeIntro" G.IgnoreGuiInset = true
-        if gethui then G.Parent = gethui() else G.Parent = CoreGui end
-        local L = Instance.new("TextLabel", G) L.Size = UDim2.new(1, 0, 0, 100) L.Position = UDim2.new(0, 0, 0.1, 0) L.BackgroundTransparency = 1 L.Text = "欢迎使用飞哥脚本中心" L.TextColor3 = Color3.fromRGB(255, 0, 0) L.TextSize = 40 L.Font = Enum.Font.SourceSansBold L.TextTransparency = 1
-        TweenService:Create(L, TweenInfo.new(1), {TextTransparency = 0}):Play() task.wait(3)
-        TweenService:Create(L, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(0, 0, -0.2, 0)}):Play() task.wait(1.5) G:Destroy()
+        local G = Instance.new("ScreenGui")
+        G.Name = "FeiGeIntro"
+        G.IgnoreGuiInset = true
+        G.Parent = gethui and gethui() or CoreGui
+        local L = Instance.new("TextLabel", G)
+        L.Size = UDim2.new(1, 0, 0, 100)
+        L.Position = UDim2.new(0, 0, 0.1, 0)
+        L.BackgroundTransparency = 1
+        L.Text = "欢迎使用飞哥脚本中心"
+        L.TextColor3 = Color3.fromRGB(255, 0, 0)
+        L.TextSize = 40
+        L.Font = Enum.Font.SourceSansBold
+        L.TextTransparency = 1
+        TweenService:Create(L, TweenInfo.new(1), {TextTransparency = 0}):Play()
+        task.wait(3)
+        TweenService:Create(L, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(0, 0, -0.2, 0)}):Play()
+        task.wait(1.5)
+        G:Destroy()
     end)
 end
 
-local function LoadMain()
-    local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
-    local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
-    local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
-    local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
-    local Options = Library.Options
-    local Toggles = Library.Toggles
-    Library.ShowCustomCursor = false
-    UserInputService.MouseIconEnabled = true
+PlayIntro()
 
-    local Window = Library:CreateWindow({Title = "飞哥脚本中心 v5.0", Footer = "富强 民主 文明 和谐 自由 平等 公正 法治 爱国 敬业 诚信 友善", Icon = 95816097006870, NotifySide = "Right"})
+local ghostOn = false
 
-    local Tabs = {
-        General = Window:AddTab("通用", "user"),
-        Aim = Window:AddTab("自瞄", "crosshair"),
-        Fling = Window:AddTab("甩飞", "paper-plane"),
-        Doors = Window:AddTab("doors", "home"),
-        Scripts = Window:AddTab("脚本", "list"),
-        Settings = Window:AddTab("系统设置", "cog")
-    }
+local UI_Container = gethui and gethui() or CoreGui
+local guis_before = {}
+for _, g in ipairs(UI_Container:GetChildren()) do
+    guis_before[g] = true
+end
 
-    -- ===================== 自瞄系统（普通自瞄，直接转镜头） =====================
-    local AimBox = Tabs.Aim:AddLeftGroupbox("自瞄设置")
-    local AimInfoBox = Tabs.Aim:AddRightGroupbox("锁定状态")
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
 
-    AimBox:AddToggle("AimOn", {Text = "启用自瞄", Default = false})
-    AimBox:AddLabel("按键/模式"):AddKeyPicker("AimKey", {Default = "MB2", SyncToggleState = false, Mode = "Hold", Text = "自瞄按键", Modes = {"Hold", "Toggle", "Always"}})
-    AimBox:AddDropdown("AimPartDrop", {Values = {"Head", "HumanoidRootPart", "UpperTorso", "Torso"}, Default = "Head", Text = "瞄准部位"})
-    AimBox:AddDropdown("AimPriority", {Values = {"离我最近", "离准星最近"}, Default = "离我最近", Text = "锁定优先"})
-    AimBox:AddSlider("AimFov", {Text = "锁定范围(studs)", Default = 200, Min = 30, Max = 2000, Rounding = 0})
-    AimBox:AddSlider("AimSmooth", {Text = "平滑度(越小越快)", Default = 5, Min = 1, Max = 30, Rounding = 1})
-    AimBox:AddSlider("AimPred", {Text = "预判量", Default = 0, Min = 0, Max = 30, Rounding = 1})
-    AimBox:AddSlider("AimMaxDist", {Text = "最大距离", Default = 500, Min = 50, Max = 2000, Rounding = 0})
-    AimBox:AddToggle("AimTeamCheck", {Text = "过滤队友", Default = false})
-    AimBox:AddToggle("AimNotify", {Text = "锁定提示", Default = true})
-    AimBox:AddToggle("AimStickyLock", {Text = "锁定后不换目标", Default = true})
+local Window = WindUI:CreateWindow({
+    Title = "飞哥脚本中心 v5.1",
+    Icon = "crown",
+    Author = "飞哥",
+    Folder = "FeiGeScript",
+    Size = UDim2.fromOffset(580, 460),
+    Transparent = true,
+    Theme = "Dark",
+})
 
-    local LkL = AimInfoBox:AddLabel("目标: 无")
-    local DsL = AimInfoBox:AddLabel("距离: --")
-    local HpL = AimInfoBox:AddLabel("血量: --")
-    AimInfoBox:AddButton({Text = "解除锁定", Func = function() _G._AimLocked = nil Library:Notify("🔓 已解除锁定", 2) end})
+local TargetGui = nil
+for _, g in ipairs(UI_Container:GetChildren()) do
+    if not guis_before[g] and g:IsA("ScreenGui") then
+        TargetGui = g
+        break
+    end
+end
+if not TargetGui then
+    TargetGui = UI_Container:WaitForChild("WindUI", 3)
+end
 
-    _G._AimLocked = nil
-    local aimPrevName = nil
+-- ==================== 修复1: 强力视野锁定 ====================
+-- 用属性变更监听+RenderStepped双重拦截，游戏无法覆盖
 
-    local function FindAimPart(model)
-        local pref = Options.AimPartDrop.Value
-        local p = model:FindFirstChild(pref)
-        if p and p:IsA("BasePart") then return p end
-        for _, n in ipairs({"Head", "HumanoidRootPart", "UpperTorso", "Torso"}) do
-            local f = model:FindFirstChild(n)
-            if f and f:IsA("BasePart") then return f end
+local _savedMouseIcon = true
+local _savedCameraMinZoom = nil
+local _savedCameraMaxZoom = nil
+local _wasUIVisible = false
+local _savedMouseBehavior = Enum.MouseBehavior.Default
+
+SafeConnect(RunService.RenderStepped, function()
+    if ghostOn then return end
+    local isVisible = TargetGui and TargetGui.Parent and TargetGui.Enabled
+    if isVisible then
+        if not _wasUIVisible then
+            _wasUIVisible = true
+            _savedMouseBehavior = UserInputService.MouseBehavior
+            _savedMouseIcon = UserInputService.MouseIconEnabled
+            _savedCameraMinZoom = LocalPlayer.CameraMinZoomDistance
+            _savedCameraMaxZoom = LocalPlayer.CameraMaxZoomDistance
         end
-        return nil
-    end
-
-    local function IsAimValid(model)
-        if not model or not model.Parent then return false end
-        local hum = model:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.Health <= 0 then return false end
-        local part = FindAimPart(model)
-        if not part then return false end
-        local _, myRoot = GetCharParts()
-        if not myRoot then return false end
-        if (part.Position - myRoot.Position).Magnitude > Options.AimMaxDist.Value then return false end
-        return true
-    end
-
-    local function GetAimTargets()
-        local res = {}
-        local myChar = LocalPlayer.Character
-        for _, pl in pairs(Players:GetPlayers()) do
-            if pl ~= LocalPlayer and pl.Character then
-                local c = pl.Character
-                local hum = c:FindFirstChildOfClass("Humanoid")
-                if hum and hum.Health > 0 then
-                    local part = FindAimPart(c)
-                    if part then
-                        local skip = false
-                        if Toggles.AimTeamCheck.Value and LocalPlayer.Team and pl.Team == LocalPlayer.Team then skip = true end
-                        if not skip then
-                            table.insert(res, {model = c, name = pl.Name, part = part})
-                        end
+        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+        UserInputService.MouseIconEnabled = true
+        if LocalPlayer.CameraMinZoomDistance < 0.5 then
+            LocalPlayer.CameraMinZoomDistance = 0.5
+        end
+        if Camera and Camera.CFrame then
+            local char = LocalPlayer.Character
+            if char then
+                local head = char:FindFirstChild("Head")
+                if head then
+                    local dist = (Camera.CFrame.Position - head.Position).Magnitude
+                    if dist < 1 then
+                        LocalPlayer.CameraMinZoomDistance = 4
+                        LocalPlayer.CameraMaxZoomDistance = math.max(LocalPlayer.CameraMaxZoomDistance, 20)
                     end
                 end
             end
         end
-        -- 也扫描非玩家NPC
-        for _, obj in pairs(Workspace:GetDescendants()) do
-            if obj:IsA("Model") and obj ~= myChar then
-                local isPlayer = false
-                for _, pl in pairs(Players:GetPlayers()) do
-                    if pl.Character == obj then isPlayer = true break end
-                end
-                if not isPlayer then
-                    local hum = obj:FindFirstChildOfClass("Humanoid")
-                    if hum and hum.Health > 0 then
-                        local part = FindAimPart(obj)
-                        if part then
-                            table.insert(res, {model = obj, name = obj.Name, part = part})
-                        end
-                    end
-                end
+    else
+        if _wasUIVisible then
+            _wasUIVisible = false
+            UserInputService.MouseIconEnabled = _savedMouseIcon
+            if _savedCameraMinZoom then
+                LocalPlayer.CameraMinZoomDistance = _savedCameraMinZoom
+            end
+            if _savedCameraMaxZoom then
+                LocalPlayer.CameraMaxZoomDistance = _savedCameraMaxZoom
             end
         end
-        return res
     end
+end)
 
-    SafeConnect(RunService.RenderStepped, function()
-        local aimOn = Toggles.AimOn.Value
-        if not aimOn then
-            _G._AimLocked = nil
-            aimPrevName = nil
-            LkL.Text = "目标: 无" DsL.Text = "距离: --" HpL.Text = "血量: --"
-            return
+local UIComponents = {}
+
+-- ==================== 通用标签 ====================
+local GeneralTab = Window:Tab({ Title = "通用", Icon = "user" })
+local MoveSection = GeneralTab:Section({ Title = "移动" })
+
+local SpeedEnabled = false
+local SpeedValue = 16
+local SuperEnabled = false
+local MultiValue = 1
+
+UIComponents.SpeedToggle = MoveSection:Toggle({
+    Title = "速度修改",
+    Value = false,
+    Callback = function(Value)
+        SpeedEnabled = Value
+        Cfg.SpeedToggle = Value
+        if Value and SuperEnabled then
+            SuperEnabled = false
+            Cfg.SuperToggle = false
+            pcall(function() UIComponents.SuperToggle:Set(false) end)
         end
-
-        local aiming = Options.AimKey:GetState()
-        if not aiming then
-            if not Toggles.AimStickyLock.Value then
-                _G._AimLocked = nil
-                aimPrevName = nil
-            end
-            LkL.Text = "目标: 无" DsL.Text = "距离: --" HpL.Text = "血量: --"
-            return
-        end
-
-        local _, myRoot = GetCharParts()
-        if not myRoot then return end
-
-        -- 检查当前锁定是否还有效
-        if _G._AimLocked and not IsAimValid(_G._AimLocked) then
-            _G._AimLocked = nil
-        end
-
-        -- 如果没有锁定目标，搜索新目标
-        if not _G._AimLocked then
-            local targets = GetAimTargets()
-            local maxD = Options.AimMaxDist.Value
-            local fovR = Options.AimFov.Value
-            local prio = Options.AimPriority.Value
-            local best, bScore, bName = nil, math.huge, ""
-            local vp = Camera.ViewportSize
-            local sc = Vector2.new(vp.X / 2, vp.Y / 2)
-
-            for _, d in ipairs(targets) do
-                local part = d.part
-                if not part or not part.Parent then continue end
-                local wDist = (part.Position - myRoot.Position).Magnitude
-                if wDist > maxD then continue end
-
-                if prio == "离我最近" then
-                    if wDist < fovR and wDist < bScore then
-                        bScore = wDist
-                        best = d.model
-                        bName = d.name
-                    end
-                else
-                    local sPos, onS = Camera:WorldToViewportPoint(part.Position)
-                    if onS then
-                        local sDist = (Vector2.new(sPos.X, sPos.Y) - sc).Magnitude
-                        if sDist < bScore then
-                            bScore = sDist
-                            best = d.model
-                            bName = d.name
-                        end
-                    end
-                end
-            end
-
-            if best then
-                _G._AimLocked = best
-                if bName ~= aimPrevName and Toggles.AimNotify.Value then
-                    Library:Notify("🎯 锁定: " .. bName, 2)
-                end
-                aimPrevName = bName
-            end
-        end
-
-        if not _G._AimLocked then
-            LkL.Text = "目标: 无" DsL.Text = "距离: --" HpL.Text = "血量: --"
-            return
-        end
-
-        local part = FindAimPart(_G._AimLocked)
-        if not part then
-            _G._AimLocked = nil
-            return
-        end
-
-        -- 获取目标名字
-        local tName = _G._AimLocked.Name
-        for _, pl in pairs(Players:GetPlayers()) do
-            if pl.Character == _G._AimLocked then tName = pl.Name break end
-        end
-
-        -- 计算瞄准位置（含预判）
-        local aimPos = part.Position
-        if Options.AimPred.Value > 0 then
-            local bRoot = _G._AimLocked:FindFirstChild("HumanoidRootPart")
-            local vel = Vector3.zero
-            if bRoot then vel = bRoot.AssemblyLinearVelocity
-            elseif part then vel = part.AssemblyLinearVelocity end
-            if vel.Magnitude > 0.1 then
-                aimPos = aimPos + vel * (Options.AimPred.Value / 100)
-            end
-        end
-
-        -- ★★★ 核心：直接转动镜头，把屏幕中心（准星）对准目标 ★★★
-        local sm = Options.AimSmooth.Value
-        local camPos = Camera.CFrame.Position
-        local dir = (aimPos - camPos)
-
-        if dir.Magnitude > 0.01 then
-            -- 目标方向
-            local targetCF = CFrame.lookAt(camPos, aimPos)
-            -- 当前朝向
-            local currentCF = Camera.CFrame
-
-            -- 平滑插值：sm越小越快，1=瞬间锁定
-            local alpha = math.clamp(1 / sm, 0.01, 1)
-            local newCF = currentCF:Lerp(CFrame.new(camPos) * (CFrame.new(camPos):Inverse() * targetCF), alpha)
-            -- 保持相机位置不变，只改朝向
-            Camera.CFrame = CFrame.new(camPos) * (CFrame.new():Inverse() * CFrame.fromMatrix(Vector3.zero, newCF.RightVector, newCF.UpVector, -newCF.LookVector))
-        end
-
-        -- 更新信息面板
-        local wD = (aimPos - myRoot.Position).Magnitude
-        LkL.Text = "目标: " .. tName
-        DsL.Text = "距离: " .. math.floor(wD) .. "m"
-        local h2 = _G._AimLocked:FindFirstChildOfClass("Humanoid")
-        if h2 then HpL.Text = "血量: " .. math.floor(h2.Health) .. "/" .. math.floor(h2.MaxHealth) end
-    end)
-
-    -- ===================== 甩飞系统 =====================
-    local FlingBox = Tabs.Fling:AddLeftGroupbox("甩飞")
-    local FlingSetBox = Tabs.Fling:AddRightGroupbox("甩飞设置")
-    local function GetPlayerList() local list = {} for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then table.insert(list, p.Name) end end return list end
-    local PlayerDrop = FlingBox:AddDropdown("FlingTarget", {Values = GetPlayerList(), Default = 1, Multi = false, Text = "选择目标"})
-    SafeConnect(Players.PlayerAdded, function() PlayerDrop:SetValues(GetPlayerList()) end)
-    SafeConnect(Players.PlayerRemoving, function() task.wait(0.1) PlayerDrop:SetValues(GetPlayerList()) end)
-
-    local FV, FSp, FMa, FFr, FRa = 3e4, 5e3, 9999, 80, 2
-    FlingSetBox:AddSlider("FVS", {Text = "力度", Default = 30000, Min = 5000, Max = 80000, Rounding = 0, Callback = function(v) FV = v end})
-    FlingSetBox:AddSlider("FSS", {Text = "旋转", Default = 5000, Min = 500, Max = 20000, Rounding = 0, Callback = function(v) FSp = v end})
-    FlingSetBox:AddSlider("FFS", {Text = "频率", Default = 80, Min = 10, Max = 200, Rounding = 0, Callback = function(v) FFr = v end})
-    FlingSetBox:AddSlider("FMS", {Text = "质量", Default = 9999, Min = 100, Max = 99999, Rounding = 0, Callback = function(v) FMa = v end})
-    FlingSetBox:AddSlider("FRS", {Text = "范围", Default = 2, Min = 1, Max = 5, Rounding = 1, Callback = function(v) FRa = v end})
-
-    local FS = {Active = false, Conn = nil, OPos = nil}
-    local function CFP() local char = LocalPlayer.Character if not char then return end for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = true v.AssemblyLinearVelocity = Vector3.zero v.AssemblyAngularVelocity = Vector3.zero v.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.3, 0.5) end end end
-
-    local function EndFling()
-        FS.Active = false
-        if FS.Conn then FS.Conn:Disconnect() FS.Conn = nil end
-        local char, root, hum = GetCharParts()
-        if not char then return end
-        CFP()
-        if hum then hum.PlatformStand = false hum.AutoRotate = true pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end) end
-        if root then root.Velocity = Vector3.zero root.RotVelocity = Vector3.zero root.AssemblyLinearVelocity = Vector3.zero root.AssemblyAngularVelocity = Vector3.zero task.wait(0.1) if FS.OPos then root.CFrame = FS.OPos FS.OPos = nil end end
-        if hum then Camera.CameraSubject = hum end
-        Library:Notify("✅ 甩飞结束", 2)
     end
+})
 
-    local function FlingLogic(TN2, Mode)
-        if FS.Active then EndFling() task.wait(0.2) end
-        local Tgt = Players:FindFirstChild(TN2)
-        if not Tgt or not Tgt.Character or not Tgt.Character:FindFirstChild("HumanoidRootPart") then Library:Notify("❌ 目标无效", 2) return end
-        local mc, mr, mh = GetCharParts()
-        if not mc or not mr or not mh then return end
-        FS.OPos = mr.CFrame FS.Active = true
-        Library:Notify("🚀 甩飞: " .. TN2, 3)
-        mh.PlatformStand = true mh.AutoRotate = false
-        for _, part in pairs(mc:GetDescendants()) do if part:IsA("BasePart") then local n = part.Name:lower() if n:find("leg") or n:find("foot") then part.CanCollide = false else part.CanCollide = true end part.CustomPhysicalProperties = PhysicalProperties.new(FMa, 0.3, 0.5) end end
-        local t0 = 0
-        FS.Conn = RunService.Heartbeat:Connect(function(dt)
-            if not FS.Active then return end
-            if not Tgt or not Tgt.Parent or not Tgt.Character then EndFling() return end
-            local tR = Tgt.Character:FindFirstChild("HumanoidRootPart")
-            local tH = Tgt.Character:FindFirstChildOfClass("Humanoid")
-            if not tR then EndFling() return end
-            if tH and tH.Health <= 0 then EndFling() return end
-            if not mr or not mr.Parent then EndFling() return end
-            if FS.OPos and (tR.Position - FS.OPos.Position).Magnitude > 800 then EndFling() return end
-            t0 = t0 + dt
-            mr.CFrame = tR.CFrame * CFrame.new(math.sin(t0 * FFr) * FRa, math.cos(t0 * FFr * 0.8) * FRa * 0.7, math.cos(t0 * FFr) * FRa)
-            mr.AssemblyLinearVelocity = Vector3.new(math.sin(t0 * FFr) * FV, math.cos(t0 * FFr * 0.6) * FV * 0.5, math.cos(t0 * FFr) * FV)
-            mr.AssemblyAngularVelocity = Vector3.new(math.sin(t0 * 30) * FSp, math.cos(t0 * 35) * FSp, math.sin(t0 * 40) * FSp)
-            mr.Velocity = mr.AssemblyLinearVelocity mr.RotVelocity = mr.AssemblyAngularVelocity
-            if mr.Position.Y < -100 then EndFling() end
+UIComponents.SpeedSlider = MoveSection:Slider({
+    Title = "速度值",
+    Step = 1,
+    Value = { Min = 16, Max = 300, Default = 16 },
+    Callback = function(Value)
+        SpeedValue = Value
+        Cfg.SpeedSlider = Value
+    end
+})
+
+UIComponents.SuperToggle = MoveSection:Toggle({
+    Title = "倍率速度",
+    Value = false,
+    Callback = function(Value)
+        SuperEnabled = Value
+        Cfg.SuperToggle = Value
+        if Value and SpeedEnabled then
+            SpeedEnabled = false
+            Cfg.SpeedToggle = false
+            pcall(function() UIComponents.SpeedToggle:Set(false) end)
+        end
+    end
+})
+
+UIComponents.MultiSlider = MoveSection:Slider({
+    Title = "倍率值",
+    Step = 0.1,
+    Value = { Min = 1, Max = 10, Default = 1 },
+    Callback = function(Value)
+        MultiValue = Value
+        Cfg.MultiSlider = Value
+    end
+})
+
+-- 飞雷神
+local FTMark = nil
+local ftBound = false
+
+local function DoMark()
+    local _, r = GetCharParts()
+    if r then
+        FTMark = r.CFrame
+        WindUI:Notify({Title = "飞雷神", Content = "已标记当前位置", Duration = 2})
+    end
+end
+
+local function DoTP()
+    local _, r = GetCharParts()
+    if r and FTMark then
+        local old = r.CFrame
+        r.CFrame = FTMark
+        FTMark = old
+        WindUI:Notify({Title = "飞雷神", Content = "已传送(位置互换)", Duration = 2})
+    else
+        WindUI:Notify({Title = "飞雷神", Content = "请先标记位置", Duration = 2})
+    end
+end
+
+MoveSection:Button({
+    Title = "飞雷神 (B标/N传)",
+    Callback = function()
+        if ftBound then return end
+        ftBound = true
+        SafeConnect(UserInputService.InputBegan, function(i, g)
+            if g then return end
+            if i.KeyCode == Enum.KeyCode.B then
+                DoMark()
+            elseif i.KeyCode == Enum.KeyCode.N then
+                DoTP()
+            end
         end)
-        if Mode == "Once" then task.delay(1.5, function() if FS.Active then EndFling() end end)
-        elseif Mode == "T5" then task.delay(5, function() if FS.Active then EndFling() end end)
-        elseif Mode == "T10" then task.delay(10, function() if FS.Active then EndFling() end end) end
+        if IsMobile then
+            CreateMobileButton("标", DoMark)
+            CreateMobileButton("传", DoTP)
+        end
+        WindUI:Notify({Title = "飞雷神", Content = "飞雷神已激活", Duration = 3})
     end
+})
 
-    FlingBox:AddToggle("LoopFling", {Text = "循环甩飞", Default = false, Callback = function(v) local t = Options.FlingTarget.Value if v and t then FlingLogic(t, "Loop") else EndFling() end end})
-    FlingBox:AddButton({Text = "甩飞 (1.5秒)", Func = function() local t = Options.FlingTarget.Value if t then FlingLogic(t, "Once") end end})
-    FlingBox:AddButton({Text = "强力 (5秒)", Func = function() local t = Options.FlingTarget.Value if t then FlingLogic(t, "T5") end end})
-    FlingBox:AddButton({Text = "毁灭 (10秒)", Func = function() local t = Options.FlingTarget.Value if t then FlingLogic(t, "T10") end end})
-    FlingBox:AddButton({Text = "紧急停止", Func = function() EndFling() if Toggles.LoopFling then Toggles.LoopFling:SetValue(false) end end})
-    FlingBox:AddButton({Text = "传送到身后", Func = function() local tn = Options.FlingTarget.Value local tg = Players:FindFirstChild(tn) if tg and tg.Character and tg.Character:FindFirstChild("HumanoidRootPart") then local _, r = GetCharParts() if r then r.CFrame = tg.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3) Library:Notify("⚡ 已瞬移", 2) end end end})
-    FlingBox:AddToggle("MonitorToggle", {Text = "监视玩家", Default = false, Callback = function(v) local tn = Options.FlingTarget.Value local tg = Players:FindFirstChild(tn) if v and tg and tg.Character and tg.Character:FindFirstChild("Humanoid") then Camera.CameraSubject = tg.Character.Humanoid else local _, _, h = GetCharParts() if h then Camera.CameraSubject = h h.WalkSpeed = 16 h.JumpPower = 50 end end end})
+-- ==================== 修复2: 无限跳支持手机 ====================
+local InfJumpEnabled = false
+UIComponents.InfJump = MoveSection:Toggle({
+    Title = "无限跳",
+    Value = false,
+    Callback = function(Value)
+        InfJumpEnabled = Value
+        Cfg.InfJump = Value
+        if Value then
+            -- 手机端: 监听JumpRequest
+            if not _G._FGInfJumpConn then
+                _G._FGInfJumpConn = SafeConnect(UserInputService.JumpRequest, function()
+                    if InfJumpEnabled then
+                        local _, _, hum = GetCharParts()
+                        if hum then
+                            pcall(function() hum:ChangeState(Enum.HumanoidStateType.Jumping) end)
+                        end
+                    end
+                end)
+            end
+        end
+    end
+})
 
-    -- ===================== 通用功能 =====================
-    local MoveBox = Tabs.General:AddLeftGroupbox("移动")
-    local VisBox = Tabs.General:AddRightGroupbox("视觉")
-    local ToolBox = Tabs.General:AddLeftGroupbox("实用工具")
+-- ==================== 修复3: 穿墙重生后自动重新应用 ====================
+local NoclipEnabled = false
+UIComponents.Noclip = MoveSection:Toggle({
+    Title = "穿墙",
+    Value = false,
+    Callback = function(Value)
+        NoclipEnabled = Value
+        Cfg.Noclip = Value
+        if not Value then
+            local char = LocalPlayer.Character
+            if char then
+                for _, v in pairs(char:GetDescendants()) do
+                    if v:IsA("BasePart") then
+                        v.CanCollide = true
+                    end
+                end
+            end
+        end
+    end
+})
 
-    MoveBox:AddToggle("SpeedToggle", {Text = "速度修改", Default = false})
-    MoveBox:AddSlider("NormalSlider", {Text = "速度值", Default = 16, Min = 16, Max = 300, Rounding = 0})
-    MoveBox:AddToggle("SuperToggle", {Text = "倍率速度", Default = false})
-    MoveBox:AddSlider("MultiSlider", {Text = "倍率值", Default = 1, Min = 1, Max = 10, Rounding = 1})
-    Toggles.SpeedToggle:OnChanged(function(v) if v then Toggles.SuperToggle:SetValue(false) end end)
-    Toggles.SuperToggle:OnChanged(function(v) if v then Toggles.SpeedToggle:SetValue(false) end end)
+MoveSection:Button({
+    Title = "飞行",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/XNEOFF/FlyGuiV3/main/FlyGuiV3.txt"))()
+        end)
+    end
+})
 
-    local FTMark = nil local ftBound = false
-    local function DoMark() local _, r = GetCharParts() if r then FTMark = r.CFrame Library:Notify("📍 已标记", 2) end end
-    local function DoTP() local _, r = GetCharParts() if r and FTMark then local old = r.CFrame r.CFrame = FTMark FTMark = old Library:Notify("⚡ 已传送", 2) end end
-    MoveBox:AddButton({Text = "飞雷神 (B标/N传)", Func = function() if ftBound then return end ftBound = true SafeConnect(UserInputService.InputBegan, function(i, g) if g then return end if i.KeyCode == Enum.KeyCode.B then DoMark() elseif i.KeyCode == Enum.KeyCode.N then DoTP() end end) if IsMobile then CreateMobileButton("标", DoMark) CreateMobileButton("传", DoTP) end Library:Notify("✅ 飞雷神已激活", 3) end})
+local ctBound = false
+MoveSection:Button({
+    Title = "Ctrl+左键传送",
+    Callback = function()
+        if ctBound then return end
+        ctBound = true
+        SafeConnect(Mouse.Button1Down, function()
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+                local _, r = GetCharParts()
+                if r and Mouse.Hit then
+                    r.CFrame = CFrame.new(Mouse.Hit.p + Vector3.new(0, 3, 0))
+                end
+            end
+        end)
+        WindUI:Notify({Title = "传送", Content = "已激活Ctrl+左键传送", Duration = 3})
+    end
+})
 
-    MoveBox:AddToggle("InfJump", {Text = "无限跳", Default = false})
-    MoveBox:AddToggle("Noclip", {Text = "穿墙", Default = false})
-    MoveBox:AddButton({Text = "飞行", Func = function() pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/XNEOFF/FlyGuiV3/main/FlyGuiV3.txt"))() end) end})
-    local ctBound = false
-    MoveBox:AddButton({Text = "Ctrl+左键传送", Func = function() if ctBound then return end ctBound = true SafeConnect(Mouse.Button1Down, function() if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then local _, r = GetCharParts() if r then r.CFrame = CFrame.new(Mouse.Hit.p + Vector3.new(0, 3, 0)) end end end) Library:Notify("✅ 已激活", 3) end})
-    MoveBox:AddToggle("AntiVoid", {Text = "防掉虚空", Default = false})
-    MoveBox:AddToggle("AntiSlowdown", {Text = "反减速", Default = false})
+-- ==================== 修复4: 防掉虚空改进 ====================
+local lastVY = nil
+local AntiVoidEnabled = false
 
-    local ghostOn = false local gPos = Vector3.new() local gRot = Vector2.new()
-    local function ToggleGhost()
-        ghostOn = not ghostOn
-        if ghostOn then
-            local cf = Camera.CFrame gPos = cf.Position local rx, ry = cf:ToEulerAnglesYXZ() gRot = Vector2.new(math.deg(rx), math.deg(ry))
-            local _, r = GetCharParts() if r then r.Anchored = true end
-            RunService:BindToRenderStep("FGGhost", Enum.RenderPriority.Camera.Value + 100, function() pcall(function()
-                Camera.CameraType = Enum.CameraType.Scriptable UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-                local d = UserInputService:GetMouseDelta() gRot = gRot - Vector2.new(d.Y, d.X) * 0.4 gRot = Vector2.new(math.clamp(gRot.X, -89, 89), gRot.Y)
-                local rcf = CFrame.fromEulerAnglesYXZ(math.rad(gRot.X), math.rad(gRot.Y), 0) local inp = Vector3.zero
+UIComponents.AntiVoid = MoveSection:Toggle({
+    Title = "防掉虚空",
+    Value = false,
+    Callback = function(Value)
+        AntiVoidEnabled = Value
+        Cfg.AntiVoid = Value
+        if Value then
+            local _, root = GetCharParts()
+            if root then
+                if root.Position.Y > -50 then
+                    lastVY = root.CFrame
+                else
+                    -- 角色已经在虚空里，找一个安全位置
+                    lastVY = CFrame.new(0, 50, 0)
+                    root.CFrame = lastVY
+                    WindUI:Notify({Title = "防虚空", Content = "检测到你在虚空中,已救回", Duration = 3})
+                end
+            end
+        end
+    end
+})
+
+-- ==================== 修复5: 强力反减速 ====================
+-- 用metatable hook拦截游戏对WalkSpeed/JumpPower的修改
+local AntiSlowdownEnabled = false
+local AntiSlowMinSpeed = 16
+local AntiSlowMinJump = 50
+
+UIComponents.AntiSlowdown = MoveSection:Toggle({
+    Title = "反减速",
+    Value = false,
+    Callback = function(Value)
+        AntiSlowdownEnabled = Value
+        Cfg.AntiSlowdown = Value
+        if Value then
+            -- 立即修正
+            local _, _, hum = GetCharParts()
+            if hum then
+                if hum.WalkSpeed < AntiSlowMinSpeed then hum.WalkSpeed = AntiSlowMinSpeed end
+                if hum.JumpPower < AntiSlowMinJump then hum.JumpPower = AntiSlowMinJump end
+            end
+        end
+    end
+})
+
+UIComponents.AntiSlowMinSpeedSlider = MoveSection:Slider({
+    Title = "最低速度(反减速)",
+    Step = 1,
+    Value = { Min = 10, Max = 100, Default = 16 },
+    Callback = function(v)
+        AntiSlowMinSpeed = v
+        Cfg.AntiSlowMinSpeed = v
+    end
+})
+
+UIComponents.AntiSlowMinJumpSlider = MoveSection:Slider({
+    Title = "最低跳跃力(反减速)",
+    Step = 1,
+    Value = { Min = 20, Max = 200, Default = 50 },
+    Callback = function(v)
+        AntiSlowMinJump = v
+        Cfg.AntiSlowMinJump = v
+    end
+})
+
+-- ==================== 视觉 ====================
+local VisSection = GeneralTab:Section({ Title = "视觉" })
+
+local gPos = Vector3.new()
+local gRot = Vector2.new()
+
+local function ToggleGhost()
+    ghostOn = not ghostOn
+    if ghostOn then
+        local cf = Camera.CFrame
+        gPos = cf.Position
+        local rx, ry = cf:ToEulerAnglesYXZ()
+        gRot = Vector2.new(math.deg(rx), math.deg(ry))
+        local _, r = GetCharParts()
+        if r then r.Anchored = true end
+        RunService:BindToRenderStep("FGGhost", Enum.RenderPriority.Camera.Value + 100, function()
+            pcall(function()
+                Camera.CameraType = Enum.CameraType.Scriptable
+                UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+                local d = UserInputService:GetMouseDelta()
+                gRot = gRot - Vector2.new(d.Y, d.X) * 0.4
+                gRot = Vector2.new(math.clamp(gRot.X, -89, 89), gRot.Y)
+                local rcf = CFrame.fromEulerAnglesYXZ(math.rad(gRot.X), math.rad(gRot.Y), 0)
+                local inp = Vector3.zero
                 if UserInputService:IsKeyDown(Enum.KeyCode.W) then inp = inp + Vector3.new(0, 0, -1) end
                 if UserInputService:IsKeyDown(Enum.KeyCode.S) then inp = inp + Vector3.new(0, 0, 1) end
                 if UserInputService:IsKeyDown(Enum.KeyCode.A) then inp = inp + Vector3.new(-1, 0, 0) end
                 if UserInputService:IsKeyDown(Enum.KeyCode.D) then inp = inp + Vector3.new(1, 0, 0) end
                 if UserInputService:IsKeyDown(Enum.KeyCode.E) then inp = inp + Vector3.new(0, 1, 0) end
                 if UserInputService:IsKeyDown(Enum.KeyCode.Q) then inp = inp + Vector3.new(0, -1, 0) end
-                local spd = 1 if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then spd = 3 end
-                if inp.Magnitude > 0 then gPos = gPos + (rcf:VectorToWorldSpace(inp.Unit) * spd) end
+                local spd = 1
+                if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then spd = 3 end
+                if inp.Magnitude > 0 then
+                    gPos = gPos + (rcf:VectorToWorldSpace(inp.Unit) * spd)
+                end
                 Camera.CFrame = CFrame.new(gPos) * rcf
-            end) end)
-            ContextActionService:BindActionAtPriority("FGInput", function() return Enum.ContextActionResult.Sink end, false, 20000, Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D, Enum.KeyCode.Space)
-            Library:Notify("👻 自由视角开启", 3)
-        else
-            pcall(function() RunService:UnbindFromRenderStep("FGGhost") end) pcall(function() ContextActionService:UnbindAction("FGInput") end)
-            local _, r, h = GetCharParts() if r then r.Anchored = false end Camera.CameraType = Enum.CameraType.Custom if h then Camera.CameraSubject = h end UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-            Library:Notify("👻 自由视角关闭", 2)
+            end)
+        end)
+        ContextActionService:BindActionAtPriority("FGInput", function()
+            return Enum.ContextActionResult.Sink
+        end, false, 20000, Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D, Enum.KeyCode.Space)
+        WindUI:Notify({Title = "自由视角", Content = "自由视角开启 (WASD移动 QE上下 Shift加速)", Duration = 3})
+    else
+        pcall(function() RunService:UnbindFromRenderStep("FGGhost") end)
+        pcall(function() ContextActionService:UnbindAction("FGInput") end)
+        local _, r, h = GetCharParts()
+        if r then r.Anchored = false end
+        Camera.CameraType = Enum.CameraType.Custom
+        if h then
+            Camera.CameraSubject = h
         end
+        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+        WindUI:Notify({Title = "自由视角", Content = "自由视角关闭", Duration = 2})
     end
-    SafeConnect(UserInputService.InputBegan, function(i, g) if g then return end if i.KeyCode == Enum.KeyCode.M then ToggleGhost() end end)
+end
 
-    VisBox:AddButton({Text = "自由视角 (M键)", Func = ToggleGhost})
+SafeConnect(UserInputService.InputBegan, function(i, g)
+    if g then return end
+    if i.KeyCode == Enum.KeyCode.M then ToggleGhost() end
+end)
 
-    VisBox:AddToggle("RainbowESP", {Text = "彩虹透视(Highlight)", Default = false, Callback = function(Val)
+VisSection:Button({ Title = "自由视角 (M键)", Callback = ToggleGhost })
+
+UIComponents.RainbowESP = VisSection:Toggle({
+    Title = "彩虹透视(Highlight)",
+    Value = false,
+    Callback = function(Val)
         _G.RBESP = Val
+        Cfg.RainbowESP = Val
         if not Val then
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= LocalPlayer and p.Character then
@@ -483,7 +539,6 @@ local function LoadMain()
                 end)
                 task.wait(0.1)
             end
-            -- 清理
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= LocalPlayer and p.Character then
                     local fg = p.Character:FindFirstChild("FGH")
@@ -491,99 +546,1482 @@ local function LoadMain()
                 end
             end
         end)
-    end})
+    end
+})
 
-    VisBox:AddButton({Text = "单次去雾", Func = function() Lighting.FogEnd = 9e9 for _, v in pairs(Lighting:GetDescendants()) do if v:IsA("Atmosphere") then v:Destroy() end end end})
-    VisBox:AddToggle("LoopFog", {Text = "循环去雾", Default = false}):OnChanged(function(v) if v then _G.FL = SafeConnect(RunService.RenderStepped, function() Lighting.FogEnd = 9e9 for _, a in pairs(Lighting:GetDescendants()) do if a:IsA("Atmosphere") then a:Destroy() end end end) else if _G.FL then _G.FL:Disconnect() _G.FL = nil end end end)
-    VisBox:AddToggle("NV", {Text = "夜视", Default = false}):OnChanged(function(v) Lighting.Ambient = v and Color3.new(1, 1, 1) or Color3.new(0, 0, 0) end)
-    VisBox:AddToggle("LNV", {Text = "循环夜视", Default = false}):OnChanged(function(v) if v then _G.LV = SafeConnect(RunService.RenderStepped, function() Lighting.Ambient = Color3.new(1, 1, 1) end) else if _G.LV then _G.LV:Disconnect() _G.LV = nil end end end)
-    VisBox:AddSlider("FOVSlider", {Text = "视野", Default = 70, Min = 1, Max = 120, Rounding = 0, Callback = function(v) Camera.FieldOfView = v end})
-    VisBox:AddToggle("FovLock", {Text = "锁定视野", Default = false})
-    VisBox:AddToggle("FB", {Text = "全亮", Default = false}):OnChanged(function(v) if v then Lighting.Brightness = 2 Lighting.ClockTime = 14 Lighting.GlobalShadows = false Lighting.OutdoorAmbient = Color3.new(1, 1, 1) else Lighting.Brightness = 1 Lighting.GlobalShadows = true Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128) end end)
-    VisBox:AddToggle("NP", {Text = "去粒子", Default = false}):OnChanged(function(v) for _, o in pairs(Workspace:GetDescendants()) do if o:IsA("ParticleEmitter") or o:IsA("Fire") or o:IsA("Smoke") or o:IsA("Sparkles") then o.Enabled = not v end end end)
+-- ==================== 修复6: 强力去雾 ====================
+-- 单次去雾增加更多雾效类型的清除
+VisSection:Button({
+    Title = "单次去雾",
+    Callback = function()
+        pcall(function()
+            Lighting.FogEnd = 9e9
+            Lighting.FogStart = 0
+            Lighting.FogColor = Color3.new(1, 1, 1)
+            for _, v in pairs(Lighting:GetDescendants()) do
+                if v:IsA("Atmosphere") then v:Destroy() end
+                if v:IsA("BlurEffect") then v:Destroy() end
+                if v:IsA("DepthOfFieldEffect") then v:Destroy() end
+            end
+            -- 有些游戏把雾放在Workspace.Terrain里
+            if Workspace:FindFirstChild("Terrain") then
+                for _, v in pairs(Workspace.Terrain:GetDescendants()) do
+                    if v:IsA("Atmosphere") then v:Destroy() end
+                end
+            end
+        end)
+        WindUI:Notify({Title = "去雾", Content = "已清除所有雾效", Duration = 2})
+    end
+})
 
-    ToolBox:AddButton({Text = "Dex", Func = function() pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/infyiff/backup/main/dex.lua"))() end) end})
-    ToolBox:AddButton({Text = "IY指令库", Func = function() pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))() end) end})
-    ToolBox:AddButton({Text = "模拟键盘", Func = function() pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/advxzivhsjjdhxhsidifvsh/mobkeyboard/main/main.txt"))() end) end})
-    ToolBox:AddButton({Text = "秒互动", Func = function() SafeConnect(ProximityPromptService.PromptButtonHoldBegan, function(p) p.HoldDuration = 0 end) Library:Notify("✅ 已开启", 2) end})
-    ToolBox:AddButton({Text = "Vape V4", Func = function() pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/7GrandDadPGN/VapeV4ForRoblox/main/NewMainScript.lua", true))() end) end})
-    ToolBox:AddButton({Text = "服务器跳转", Func = function() pcall(function() local H = game:GetService("HttpService") local T = game:GetService("TeleportService") local P = game.PlaceId local s = H:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. P .. "/servers/Public?sortOrder=Asc&limit=100")) for _, sv in pairs(s.data) do if sv.playing < sv.maxPlayers and sv.id ~= game.JobId then T:TeleportToPlaceInstance(P, sv.id, LocalPlayer) break end end end) end})
-
-    -- ===================== Doors =====================
-    local DS = Tabs.Doors:AddLeftGroupbox("常用脚本")
-    local DM = Tabs.Doors:AddRightGroupbox("模式选择")
-    DS:AddButton({Text = "MS Hax", Func = function() pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/TheHunterSolo1/Scripts/refs/heads/main/Protected_2809220311826785.lua.txt"))() end) end})
-    DS:AddButton({Text = "Sensation V2", Func = function() pcall(function() loadstring(game:HttpGet("https://rawscripts.net/raw/FLOOR-2-DOORS-Sensation-V2-20105"))() end) end})
-    DS:AddButton({Text = "Shark Hub", Func = function() pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/sharksharksharkshark/shark-shark-shark-shark-shark/main/shark-scriptlollol.txt"))() end) end})
-    DM:AddButton({Text = "硬核模式", Func = function() pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/daiayday/HardcoreRemastered/refs/heads/main/obf_L6zO2N0sG5ehDHd56JBc5z70TZ2piVOvIqsgE88741HXGrwv7E4qd6c8axu8z4oh.lua.txt"))() end) end})
-    DM:AddButton({Text = "不可能模式", Func = function() pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/Ukazix/impossible-mode/main/Protected_79.lua.txt"))() end) end})
-
-    -- ===================== 脚本 =====================
-    local SL = Tabs.Scripts:AddLeftGroupbox("脚本列表")
-    SL:AddButton({Text = "天空脚本", Func = function() pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/hdjsjjdgrhj/script-hub/refs/heads/main/skyhub"))() end) end})
-    SL:AddButton({Text = "RB Hub", Func = function() pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/Yungengxin/roblox/refs/heads/main/Rb-Hub"))() end) end})
-    SL:AddButton({Text = "浮萍脚本", Func = function() pcall(function() loadstring("\108\111\97\100\115\116\114\105\110\103\40\103\97\109\101\58\72\116\116\112\71\101\116\34\104\116\116\112\115\58\47\47\114\97\119\46\103\105\116\104\117\98\117\115\101\114\99\111\110\116\101\110\116\46\99\111\109\47\84\72\68\90\69\80\47\100\117\99\107\119\101\101\100\45\99\101\110\116\101\114\86\50\47\109\97\105\110\47\37\69\53\37\56\57\37\56\68\37\69\56\37\65\56\37\56\48\34\41\40\41\10")() end) end})
-    SL:AddButton({Text = "XK Hub", Func = function() pcall(function() loadstring(game:HttpGet("https://github.com/devslopo/DVES/raw/main/XK%20Hub"))() end) end})
-
-    -- ===================== 系统设置 =====================
-    local MG = Tabs.Settings:AddLeftGroupbox("界面")
-    MG:AddToggle("KBF", {Default = Library.KeybindFrame.Visible, Text = "按键列表", Callback = function(v) Library.KeybindFrame.Visible = v end})
-    MG:AddToggle("SCC", {Text = "鼠标美化", Default = false, Callback = function(v) Library.ShowCustomCursor = v UserInputService.MouseIconEnabled = not v end})
-    MG:AddDropdown("NS", {Values = {"Left", "Right"}, Default = "Right", Text = "通知位置", Callback = function(v) Library:SetNotifySide(v) end})
-    MG:AddDropdown("DPI", {Values = {"50%", "75%", "100%", "125%", "150%", "175%", "200%"}, Default = "100%", Text = "界面缩放", Callback = function(v) Library:SetDPIScale(tonumber(v:gsub("%%", ""))) end})
-    MG:AddLabel("菜单开关"):AddKeyPicker("MenuKeybind", {Default = "RightShift", NoUI = true, Text = "菜单开关"})
-    MG:AddButton("完全卸载", function()
-        bgAnim = false _G.RBESP = false
-        if Toggles.AimOn then Toggles.AimOn:SetValue(false) end
-        if ghostOn then ToggleGhost() end
-        if FS.Active then EndFling() end
-        for _, cn in pairs(AllConnections) do pcall(function() cn:Disconnect() end) end
-        if _G.FL then pcall(function() _G.FL:Disconnect() end) end
-        if _G.LV then pcall(function() _G.LV:Disconnect() end) end
-        Library:Unload()
-    end)
-
-    local CG = Tabs.Settings:AddRightGroupbox("存档")
-    CG:AddInput("CN", {Default = "Config", Numeric = false, Finished = false, Text = "存档名称", Placeholder = "输入名称..."})
-    CG:AddButton("保存配置", function() SaveManager:Save(Options.CN.Value) Library:Notify("✅ 已保存", 3) end)
-    CG:AddButton("加载配置", function() SaveManager:Load(Options.CN.Value) Library:Notify("🔄 已加载", 3) end)
-
-    local AG = Tabs.Settings:AddRightGroupbox("防踢")
-    AG:AddLabel("✅ 防挂机已自动启用")
-
-    -- ===================== 主循环 =====================
-    local lastVY = nil
-    local monCD = 0
-    SafeConnect(RunService.Heartbeat, function(dt)
-        local char, root, hum = GetCharParts()
-        if not char or not root or not hum then return end
-        if Toggles.MonitorToggle.Value then monCD = monCD + dt if monCD >= 0.1 then monCD = 0 local tn = Options.FlingTarget.Value local tg = Players:FindFirstChild(tn) if tg and tg.Character and tg.Character:FindFirstChild("Humanoid") then Camera.CameraSubject = tg.Character.Humanoid end hum.WalkSpeed = 0 hum.JumpPower = 0 end return end
-        if hum.MoveDirection.Magnitude > 0 then
-            if Toggles.SpeedToggle.Value then local s = Options.NormalSlider.Value root.AssemblyLinearVelocity = Vector3.new(hum.MoveDirection.X * s, root.AssemblyLinearVelocity.Y, hum.MoveDirection.Z * s)
-            elseif Toggles.SuperToggle.Value then local m = Options.MultiSlider.Value root.CFrame = root.CFrame + (hum.MoveDirection * (dt * 60 * m)) root.AssemblyLinearVelocity = Vector3.new(0, root.AssemblyLinearVelocity.Y, 0) end
+-- 循环去雾：拦截新增的雾效实例
+UIComponents.LoopFog = VisSection:Toggle({
+    Title = "循环去雾(强力)",
+    Value = false,
+    Callback = function(v)
+        Cfg.LoopFog = v
+        if v then
+            -- RenderStepped循环清除
+            _G.FL = SafeConnect(RunService.RenderStepped, function()
+                pcall(function()
+                    Lighting.FogEnd = 9e9
+                    Lighting.FogStart = 0
+                end)
+            end)
+            -- 监听新实例加入Lighting
+            _G.FL2 = SafeConnect(Lighting.DescendantAdded, function(obj)
+                task.wait()
+                if obj:IsA("Atmosphere") or obj:IsA("BlurEffect") or obj:IsA("DepthOfFieldEffect") then
+                    pcall(function() obj:Destroy() end)
+                end
+            end)
+            -- 先清一次
+            for _, a in pairs(Lighting:GetDescendants()) do
+                if a:IsA("Atmosphere") or a:IsA("BlurEffect") or a:IsA("DepthOfFieldEffect") then
+                    pcall(function() a:Destroy() end)
+                end
+            end
+        else
+            if _G.FL then _G.FL:Disconnect(); _G.FL = nil end
+            if _G.FL2 then _G.FL2:Disconnect(); _G.FL2 = nil end
         end
-        if Toggles.InfJump.Value and UserInputService:IsKeyDown(Enum.KeyCode.Space) then pcall(function() hum:ChangeState(Enum.HumanoidStateType.Jumping) end) end
-        if Toggles.Noclip.Value then for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end end
-        if Toggles.FovLock.Value then Camera.FieldOfView = Options.FOVSlider.Value end
-        if Toggles.AntiVoid.Value then if root.Position.Y < -50 then if lastVY then root.CFrame = lastVY root.AssemblyLinearVelocity = Vector3.zero end else lastVY = root.CFrame end end
-        if Toggles.AntiSlowdown.Value then if hum.WalkSpeed < 16 then hum.WalkSpeed = 16 end if hum.JumpPower < 50 then hum.JumpPower = 50 end end
-    end)
+    end
+})
 
-    Library.ToggleKeybind = Options.MenuKeybind
-    ThemeManager:SetLibrary(Library) SaveManager:SetLibrary(Library) SaveManager:IgnoreThemeSettings() SaveManager:SetIgnoreIndexes({"MenuKeybind"}) ThemeManager:SetFolder("FeiGeScript") SaveManager:SetFolder("FeiGeScript/Config") SaveManager:LoadAutoloadConfig()
-    Library:Notify("🎉 飞哥脚本中心 v5.0 加载完成", 5)
-    Library:Notify("🛡️ 防挂机已自动启用", 3)
-end
+UIComponents.NV = VisSection:Toggle({
+    Title = "夜视",
+    Value = false,
+    Callback = function(v)
+        Cfg.NV = v
+        Lighting.Ambient = v and Color3.new(1, 1, 1) or Color3.new(0, 0, 0)
+    end
+})
 
-VerifyBtn.MouseButton1Click:Connect(function()
-    if Keys[InputBox.Text] then
-        VerifyBtn.Text = "✅ 成功" VerifyBtn.BackgroundColor3 = Color3.new(0, 1, 0)
-        TweenService:Create(Background, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
-        task.wait(0.5) ScreenGui:Destroy() PlayIntro() LoadMain()
-    else
-        Attempts = Attempts + 1 local Left = MaxAttempts - Attempts
-        StatusL.Text = "❌ 错误！剩余: " .. Left StatusL.TextColor3 = Color3.fromRGB(255, 100, 100) VerifyBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-        if Left <= 0 then task.wait(0.5) LocalPlayer:Kick("验证失败次数过多") return end
-        task.wait(1) VerifyBtn.Text = "验 证" VerifyBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 255) StatusL.TextColor3 = Color3.fromRGB(150, 150, 150)
+UIComponents.LNV = VisSection:Toggle({
+    Title = "循环夜视(强力)",
+    Value = false,
+    Callback = function(v)
+        Cfg.LNV = v
+        if v then
+            _G.LV = SafeConnect(RunService.RenderStepped, function()
+                Lighting.Ambient = Color3.new(1, 1, 1)
+                Lighting.Brightness = 2
+                Lighting.ClockTime = 14
+            end)
+        else
+            if _G.LV then _G.LV:Disconnect(); _G.LV = nil end
+        end
+    end
+})
+
+-- ==================== 修复7: 强力视野锁定 ====================
+local FovValue = 70
+local FovLockEnabled = false
+local _fovChangedConn = nil
+
+UIComponents.FOVSlider = VisSection:Slider({
+    Title = "视野",
+    Step = 1,
+    Value = { Min = 1, Max = 120, Default = 70 },
+    Callback = function(v)
+        FovValue = v
+        Cfg.FOVSlider = v
+        Camera.FieldOfView = v
+    end
+})
+
+UIComponents.FovLock = VisSection:Toggle({
+    Title = "锁定视野(强力拦截)",
+    Value = false,
+    Callback = function(v)
+        FovLockEnabled = v
+        Cfg.FovLock = v
+        if v then
+            Camera.FieldOfView = FovValue
+            -- 监听属性变更，游戏改了立刻改回来
+            if not _fovChangedConn then
+                _fovChangedConn = SafeConnect(Camera:GetPropertyChangedSignal("FieldOfView"), function()
+                    if FovLockEnabled and Camera.FieldOfView ~= FovValue then
+                        Camera.FieldOfView = FovValue
+                    end
+                end)
+            end
+        else
+            if _fovChangedConn then
+                _fovChangedConn:Disconnect()
+                _fovChangedConn = nil
+            end
+        end
+    end
+})
+
+-- 每帧也强制设置，双重保险
+SafeConnect(RunService.RenderStepped, function()
+    if FovLockEnabled then
+        if Camera.FieldOfView ~= FovValue then
+            Camera.FieldOfView = FovValue
+        end
     end
 end)
+
+UIComponents.FB = VisSection:Toggle({
+    Title = "全亮",
+    Value = false,
+    Callback = function(v)
+        Cfg.FB = v
+        if v then
+            Lighting.Brightness = 2
+            Lighting.ClockTime = 14
+            Lighting.GlobalShadows = false
+            Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+        else
+            Lighting.Brightness = 1
+            Lighting.GlobalShadows = true
+            Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+        end
+    end
+})
+
+UIComponents.NP = VisSection:Toggle({
+    Title = "去粒子",
+    Value = false,
+    Callback = function(v)
+        Cfg.NP = v
+        for _, o in pairs(Workspace:GetDescendants()) do
+            if o:IsA("ParticleEmitter") or o:IsA("Fire") or o:IsA("Smoke") or o:IsA("Sparkles") then
+                o.Enabled = not v
+            end
+        end
+        -- 监听新粒子
+        if v and not _G._NPConn then
+            _G._NPConn = SafeConnect(Workspace.DescendantAdded, function(obj)
+                if not Cfg.NP then return end
+                task.wait()
+                if obj:IsA("ParticleEmitter") or obj:IsA("Fire") or obj:IsA("Smoke") or obj:IsA("Sparkles") then
+                    obj.Enabled = false
+                end
+            end)
+        elseif not v and _G._NPConn then
+            _G._NPConn:Disconnect()
+            _G._NPConn = nil
+        end
+    end
+})
+
+-- ==================== 实用工具 ====================
+local ToolSection = GeneralTab:Section({ Title = "实用工具" })
+
+ToolSection:Button({
+    Title = "Dex",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/infyiff/backup/main/dex.lua"))()
+        end)
+    end
+})
+
+ToolSection:Button({
+    Title = "IY指令库",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+        end)
+    end
+})
+
+ToolSection:Button({
+    Title = "模拟键盘",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/advxzivhsjjdhxhsidifvsh/mobkeyboard/main/main.txt"))()
+        end)
+    end
+})
+
+ToolSection:Button({
+    Title = "秒互动",
+    Callback = function()
+        -- 现有的改掉
+        for _, v in pairs(Workspace:GetDescendants()) do
+            if v:IsA("ProximityPrompt") then
+                v.HoldDuration = 0
+            end
+        end
+        -- 监听新的
+        SafeConnect(Workspace.DescendantAdded, function(obj)
+            task.wait()
+            if obj:IsA("ProximityPrompt") then
+                obj.HoldDuration = 0
+            end
+        end)
+        SafeConnect(ProximityPromptService.PromptButtonHoldBegan, function(p)
+            p.HoldDuration = 0
+        end)
+        WindUI:Notify({Title = "工具", Content = "秒互动已开启(含新互动点)", Duration = 2})
+    end
+})
+
+ToolSection:Button({
+    Title = "Vape V4",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/7GrandDadPGN/VapeV4ForRoblox/main/NewMainScript.lua", true))()
+        end)
+    end
+})
+
+ToolSection:Button({
+    Title = "服务器跳转",
+    Callback = function()
+        pcall(function()
+            local H = game:GetService("HttpService")
+            local T = game:GetService("TeleportService")
+            local P = game.PlaceId
+            local s = H:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. P .. "/servers/Public?sortOrder=Asc&limit=100"))
+            for _, sv in pairs(s.data) do
+                if sv.playing < sv.maxPlayers and sv.id ~= game.JobId then
+                    T:TeleportToPlaceInstance(P, sv.id, LocalPlayer)
+                    break
+                end
+            end
+        end)
+    end
+})
+
+-- ==================== 自瞄标签 ====================
+local AimTab = Window:Tab({ Title = "自瞄", Icon = "crosshair" })
+local AimSection = AimTab:Section({ Title = "自瞄设置" })
+
+local AimEnabled = false
+local AimKeyMode = "Hold"
+local AimKeyActive = false
+local AimPartName = "Head"
+local AimPriorityValue = "离我最近"
+local AimFovValue = 200
+local AimSmoothValue = 5
+local AimPredValue = 0
+local AimMaxDistValue = 500
+local AimTeamCheckEnabled = false
+local AimNotifyEnabled = true
+local AimStickyLockEnabled = true
+_G._AimLocked = nil
+local aimPrevName = nil
+
+-- ==================== 修复8: 自瞄NPC扫描性能优化 ====================
+-- 缓存NPC列表，不每帧遍历整个Workspace
+local _npcCache = {}
+local _npcCacheTime = 0
+local NPC_CACHE_INTERVAL = 2 -- 每2秒刷新一次NPC列表
+
+local function RefreshNPCCache()
+    local myChar = LocalPlayer.Character
+    local playerChars = {}
+    for _, pl in pairs(Players:GetPlayers()) do
+        if pl.Character then playerChars[pl.Character] = true end
+    end
+    local result = {}
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("Model") and not playerChars[obj] and obj ~= myChar then
+            local hum = obj:FindFirstChildOfClass("Humanoid")
+            if hum then
+                table.insert(result, obj)
+            end
+        end
+    end
+    _npcCache = result
+    _npcCacheTime = tick()
+end
+
+UIComponents.AimOn = AimSection:Toggle({
+    Title = "启用自瞄",
+    Value = false,
+    Callback = function(Value)
+        AimEnabled = Value
+        Cfg.AimOn = Value
+        if not Value then
+            _G._AimLocked = nil
+            aimPrevName = nil
+        end
+    end
+})
+
+UIComponents.AimKeyMode = AimSection:Dropdown({
+    Title = "自瞄按键模式",
+    Values = {"Hold(按住)", "Toggle(切换)", "Always(始终)"},
+    Value = "Hold(按住)",
+    Multi = false,
+    Callback = function(Value)
+        Cfg.AimKeyMode = Value
+        if Value:find("Hold") then
+            AimKeyMode = "Hold"
+        elseif Value:find("Toggle") then
+            AimKeyMode = "Toggle"
+        else
+            AimKeyMode = "Always"
+        end
+    end
+})
+
+local AimKeyMap = {
+    ["鼠标右键(MB2)"] = "MouseButton2",
+    ["鼠标左键(MB1)"] = "MouseButton1",
+    ["鼠标中键(MB3)"] = "MouseButton3",
+    ["左Shift"] = "LeftShift",
+    ["左Ctrl"] = "LeftControl",
+    ["左Alt"] = "LeftAlt",
+    ["E键"] = "E",
+    ["Q键"] = "Q",
+    ["C键"] = "C",
+    ["F键"] = "F",
+    ["V键"] = "V"
+}
+local AimKeyList = {"鼠标右键(MB2)", "鼠标左键(MB1)", "鼠标中键(MB3)", "左Shift", "左Ctrl", "左Alt", "E键", "Q键", "C键", "F键", "V键"}
+local CurrentAimKey = "MouseButton2"
+
+UIComponents.AimKeyBind = AimSection:Dropdown({
+    Title = "自瞄按键",
+    Values = AimKeyList,
+    Value = "鼠标右键(MB2)",
+    Multi = false,
+    Callback = function(Value)
+        CurrentAimKey = AimKeyMap[Value] or "MouseButton2"
+        Cfg.AimKeyBind = Value
+    end
+})
+
+local function IsAimKeyPressed(input)
+    local utName = input.UserInputType.Name
+    local kcName = input.KeyCode.Name
+    if utName == CurrentAimKey then return true end
+    if kcName == CurrentAimKey then return true end
+    return false
+end
+
+SafeConnect(UserInputService.InputBegan, function(input, gpe)
+    if gpe then return end
+    if IsAimKeyPressed(input) then
+        if AimKeyMode == "Hold" then
+            AimKeyActive = true
+        elseif AimKeyMode == "Toggle" then
+            AimKeyActive = not AimKeyActive
+            if not AimKeyActive and not AimStickyLockEnabled then
+                _G._AimLocked = nil
+                aimPrevName = nil
+            end
+        end
+    end
+end)
+
+SafeConnect(UserInputService.InputEnded, function(input, gpe)
+    if IsAimKeyPressed(input) then
+        if AimKeyMode == "Hold" then
+            AimKeyActive = false
+            if not AimStickyLockEnabled then
+                _G._AimLocked = nil
+                aimPrevName = nil
+            end
+        end
+    end
+end)
+
+UIComponents.AimPartDrop = AimSection:Dropdown({
+    Title = "瞄准部位",
+    Values = {"Head", "HumanoidRootPart", "UpperTorso", "Torso"},
+    Value = "Head",
+    Multi = false,
+    Callback = function(Value)
+        AimPartName = Value
+        Cfg.AimPartDrop = Value
+    end
+})
+
+UIComponents.AimPriority = AimSection:Dropdown({
+    Title = "锁定优先",
+    Values = {"离我最近", "离准星最近"},
+    Value = "离我最近",
+    Multi = false,
+    Callback = function(Value)
+        AimPriorityValue = Value
+        Cfg.AimPriority = Value
+    end
+})
+
+UIComponents.AimFov = AimSection:Slider({
+    Title = "锁定范围(studs)",
+    Step = 10,
+    Value = { Min = 30, Max = 2000, Default = 200 },
+    Callback = function(Value)
+        AimFovValue = Value
+        Cfg.AimFov = Value
+    end
+})
+
+UIComponents.AimSmooth = AimSection:Slider({
+    Title = "平滑度(越小越快)",
+    Step = 0.5,
+    Value = { Min = 1, Max = 30, Default = 5 },
+    Callback = function(Value)
+        AimSmoothValue = Value
+        Cfg.AimSmooth = Value
+    end
+})
+
+UIComponents.AimPred = AimSection:Slider({
+    Title = "预判量",
+    Step = 0.5,
+    Value = { Min = 0, Max = 30, Default = 0 },
+    Callback = function(Value)
+        AimPredValue = Value
+        Cfg.AimPred = Value
+    end
+})
+
+UIComponents.AimMaxDist = AimSection:Slider({
+    Title = "最大距离",
+    Step = 10,
+    Value = { Min = 50, Max = 2000, Default = 500 },
+    Callback = function(Value)
+        AimMaxDistValue = Value
+        Cfg.AimMaxDist = Value
+    end
+})
+
+UIComponents.AimTeamCheck = AimSection:Toggle({
+    Title = "过滤队友",
+    Value = false,
+    Callback = function(Value)
+        AimTeamCheckEnabled = Value
+        Cfg.AimTeamCheck = Value
+    end
+})
+
+UIComponents.AimNotify = AimSection:Toggle({
+    Title = "锁定提示",
+    Value = true,
+    Callback = function(Value)
+        AimNotifyEnabled = Value
+        Cfg.AimNotify = Value
+    end
+})
+
+UIComponents.AimStickyLock = AimSection:Toggle({
+    Title = "锁定后不换目标",
+    Value = true,
+    Callback = function(Value)
+        AimStickyLockEnabled = Value
+        Cfg.AimStickyLock = Value
+    end
+})
+
+local AimStatusSection = AimTab:Section({ Title = "锁定状态" })
+AimStatusSection:Button({
+    Title = "解除锁定",
+    Callback = function()
+        _G._AimLocked = nil
+        aimPrevName = nil
+        WindUI:Notify({Title = "自瞄", Content = "已解除锁定", Duration = 2})
+    end
+})
+
+local function FindAimPart(model)
+    local p = model:FindFirstChild(AimPartName)
+    if p and p:IsA("BasePart") then return p end
+    for _, n in ipairs({"Head", "HumanoidRootPart", "UpperTorso", "Torso"}) do
+        local f = model:FindFirstChild(n)
+        if f and f:IsA("BasePart") then return f end
+    end
+    return nil
+end
+
+local function IsAimValid(model)
+    if not model or not model.Parent then return false end
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return false end
+    local part = FindAimPart(model)
+    if not part then return false end
+    local _, myRoot = GetCharParts()
+    if not myRoot then return false end
+    if (part.Position - myRoot.Position).Magnitude > AimMaxDistValue then return false end
+    return true
+end
+
+local function GetAimTargets()
+    local res = {}
+    -- 玩家
+    for _, pl in pairs(Players:GetPlayers()) do
+        if pl ~= LocalPlayer and pl.Character then
+            local c = pl.Character
+            local hum = c:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                local part = FindAimPart(c)
+                if part and not (AimTeamCheckEnabled and LocalPlayer.Team and pl.Team == LocalPlayer.Team) then
+                    table.insert(res, {model = c, name = pl.Name, part = part})
+                end
+            end
+        end
+    end
+    -- NPC (使用缓存)
+    if tick() - _npcCacheTime > NPC_CACHE_INTERVAL then
+        RefreshNPCCache()
+    end
+    for _, obj in ipairs(_npcCache) do
+        if obj and obj.Parent then
+            local hum = obj:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                local part = FindAimPart(obj)
+                if part then
+                    table.insert(res, {model = obj, name = obj.Name, part = part})
+                end
+            end
+        end
+    end
+    return res
+end
+
+SafeConnect(RunService.RenderStepped, function(dt)
+    if not AimEnabled then
+        _G._AimLocked = nil
+        aimPrevName = nil
+        return
+    end
+    if ghostOn then return end
+
+    local aiming = (AimKeyMode == "Always") and true or AimKeyActive
+    if not aiming then
+        if not AimStickyLockEnabled then
+            _G._AimLocked = nil
+            aimPrevName = nil
+        end
+        return
+    end
+
+    local _, myRoot = GetCharParts()
+    if not myRoot then return end
+
+    if _G._AimLocked and not IsAimValid(_G._AimLocked) then
+        _G._AimLocked = nil
+        aimPrevName = nil
+    end
+
+    if not _G._AimLocked then
+        local targets = GetAimTargets()
+        local best, bScore, bName = nil, math.huge, ""
+        local sc = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+        for _, d in ipairs(targets) do
+            local part = d.part
+            if not part or not part.Parent then continue end
+            local wDist = (part.Position - myRoot.Position).Magnitude
+            if wDist > AimMaxDistValue then continue end
+
+            if AimPriorityValue == "离我最近" then
+                if wDist < AimFovValue and wDist < bScore then
+                    bScore = wDist
+                    best = d.model
+                    bName = d.name
+                end
+            else
+                local sPos, onS = Camera:WorldToViewportPoint(part.Position)
+                if onS then
+                    local sDist = (Vector2.new(sPos.X, sPos.Y) - sc).Magnitude
+                    if sDist < bScore then
+                        bScore = sDist
+                        best = d.model
+                        bName = d.name
+                    end
+                end
+            end
+        end
+
+        if best then
+            _G._AimLocked = best
+            if bName ~= aimPrevName and AimNotifyEnabled then
+                WindUI:Notify({Title = "自瞄", Content = "锁定: " .. bName, Duration = 2})
+            end
+            aimPrevName = bName
+        end
+    end
+
+    if not _G._AimLocked then return end
+    local part = FindAimPart(_G._AimLocked)
+    if not part then
+        _G._AimLocked = nil
+        aimPrevName = nil
+        return
+    end
+
+    local aimPos = part.Position
+    if AimPredValue > 0 then
+        local bRoot = _G._AimLocked:FindFirstChild("HumanoidRootPart")
+        local vel = bRoot and bRoot.AssemblyLinearVelocity or part.AssemblyLinearVelocity
+        if vel and vel.Magnitude > 0.1 then
+            aimPos = aimPos + vel * (AimPredValue / 100)
+        end
+    end
+
+    local camPos = Camera.CFrame.Position
+    local dist = (aimPos - camPos).Magnitude
+    if dist > 0.01 then
+        local targetCF = CFrame.lookAt(camPos, aimPos)
+        local alpha = math.clamp(1 / AimSmoothValue, 0.01, 1)
+        Camera.CFrame = Camera.CFrame:Lerp(targetCF, alpha)
+    end
+end)
+
+-- ==================== 甩飞标签 ====================
+local FlingTab = Window:Tab({ Title = "甩飞", Icon = "send" })
+local FlingSection = FlingTab:Section({ Title = "甩飞" })
+
+local function GetPlayerList()
+    local list = {}
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            table.insert(list, p.Name)
+        end
+    end
+    return list
+end
+
+local FlingTargetName = nil
+UIComponents.FlingTarget = FlingSection:Dropdown({
+    Title = "选择目标",
+    Values = GetPlayerList(),
+    Value = "",
+    Multi = false,
+    Callback = function(Value)
+        FlingTargetName = Value
+        Cfg.FlingTarget = Value
+    end
+})
+
+SafeConnect(Players.PlayerAdded, function()
+    task.wait(1)
+    pcall(function() UIComponents.FlingTarget:Refresh(GetPlayerList()) end)
+end)
+SafeConnect(Players.PlayerRemoving, function(p)
+    task.wait(0.5)
+    -- 如果甩飞目标离开了，停止甩飞
+    if FlingTargetName and p.Name == FlingTargetName then
+        if FS.Active then EndFling() end
+        FlingTargetName = nil
+    end
+    pcall(function() UIComponents.FlingTarget:Refresh(GetPlayerList()) end)
+end)
+
+local FlingSettingsSection = FlingTab:Section({ Title = "甩飞设置" })
+local FV, FSp, FMa, FFr, FRa = 3e4, 5e3, 9999, 80, 2
+
+UIComponents.FVS = FlingSettingsSection:Slider({
+    Title = "力度", Step = 1000,
+    Value = { Min = 5000, Max = 80000, Default = 30000 },
+    Callback = function(v) FV = v; Cfg.FVS = v end
+})
+
+UIComponents.FSS = FlingSettingsSection:Slider({
+    Title = "旋转", Step = 100,
+    Value = { Min = 500, Max = 20000, Default = 5000 },
+    Callback = function(v) FSp = v; Cfg.FSS = v end
+})
+
+UIComponents.FFS = FlingSettingsSection:Slider({
+    Title = "频率", Step = 5,
+    Value = { Min = 10, Max = 200, Default = 80 },
+    Callback = function(v) FFr = v; Cfg.FFS = v end
+})
+
+UIComponents.FMS = FlingSettingsSection:Slider({
+    Title = "质量", Step = 100,
+    Value = { Min = 100, Max = 99999, Default = 9999 },
+    Callback = function(v) FMa = v; Cfg.FMS = v end
+})
+
+UIComponents.FRS = FlingSettingsSection:Slider({
+    Title = "范围", Step = 0.5,
+    Value = { Min = 1, Max = 5, Default = 2 },
+    Callback = function(v) FRa = v; Cfg.FRS = v end
+})
+
+local FS = {Active = false, Conn = nil, OPos = nil}
+
+local function CFP()
+    local char = LocalPlayer.Character
+    if not char then return end
+    for _, v in pairs(char:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = true
+            v.AssemblyLinearVelocity = Vector3.zero
+            v.AssemblyAngularVelocity = Vector3.zero
+            v.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.3, 0.5)
+        end
+    end
+end
+
+-- ==================== 修复9: 甩飞结束后稳定恢复 ====================
+local function EndFling()
+    if not FS.Active and not FS.Conn then return end
+    FS.Active = false
+    if FS.Conn then
+        FS.Conn:Disconnect()
+        FS.Conn = nil
+    end
+    local char, root, hum = GetCharParts()
+    if not char then return end
+    CFP()
+    if hum then
+        hum.PlatformStand = false
+        hum.AutoRotate = true
+        pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
+    end
+    if root then
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
+        root.Velocity = Vector3.zero
+        root.RotVelocity = Vector3.zero
+        if FS.OPos then
+            -- 等一帧让物理稳定
+            task.wait(0.15)
+            if root and root.Parent then
+                root.CFrame = FS.OPos + Vector3.new(0, 3, 0) -- 稍微抬高防卡地下
+                root.AssemblyLinearVelocity = Vector3.zero
+                root.AssemblyAngularVelocity = Vector3.zero
+            end
+            FS.OPos = nil
+        end
+        -- 再等一下确保稳定
+        task.wait(0.1)
+        if root and root.Parent then
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+        end
+    end
+    if hum then Camera.CameraSubject = hum end
+    WindUI:Notify({Title = "甩飞", Content = "甩飞结束", Duration = 2})
+end
+
+local LoopFlingEnabled = false
+
+local function FlingLogic(TN2, Mode)
+    if FS.Active then
+        EndFling()
+        task.wait(0.5)
+    end
+    local Tgt = Players:FindFirstChild(TN2)
+    if not Tgt or not Tgt.Character or not Tgt.Character:FindFirstChild("HumanoidRootPart") then
+        WindUI:Notify({Title = "甩飞", Content = "目标无效", Duration = 2})
+        return
+    end
+    local mc, mr, mh = GetCharParts()
+    if not mc or not mr or not mh then return end
+    FS.OPos = mr.CFrame
+    FS.Active = true
+    WindUI:Notify({Title = "甩飞", Content = "甩飞: " .. TN2, Duration = 3})
+    mh.PlatformStand = true
+    mh.AutoRotate = false
+    for _, part in pairs(mc:GetDescendants()) do
+        if part:IsA("BasePart") then
+            local n = part.Name:lower()
+            if n:find("leg") or n:find("foot") then
+                part.CanCollide = false
+            else
+                part.CanCollide = true
+            end
+            part.CustomPhysicalProperties = PhysicalProperties.new(FMa, 0.3, 0.5)
+        end
+    end
+    local t0 = 0
+    FS.Conn = RunService.Heartbeat:Connect(function(dt)
+        if not FS.Active then return end
+        if not Tgt or not Tgt.Parent or not Tgt.Character then
+            EndFling()
+            return
+        end
+        local tR = Tgt.Character:FindFirstChild("HumanoidRootPart")
+        local tH = Tgt.Character:FindFirstChildOfClass("Humanoid")
+        if not tR or (tH and tH.Health <= 0) or not mr or not mr.Parent then
+            EndFling()
+            return
+        end
+        if FS.OPos and (tR.Position - FS.OPos.Position).Magnitude > 1000 then
+            EndFling()
+            return
+        end
+        t0 = t0 + dt
+        mr.CFrame = tR.CFrame * CFrame.new(
+            math.sin(t0 * FFr) * FRa,
+            math.cos(t0 * FFr * 0.8) * FRa * 0.7,
+            math.cos(t0 * FFr) * FRa
+        )
+        mr.AssemblyLinearVelocity = Vector3.new(
+            math.sin(t0 * FFr) * FV,
+            math.cos(t0 * FFr * 0.6) * FV * 0.5,
+            math.cos(t0 * FFr) * FV
+        )
+        mr.AssemblyAngularVelocity = Vector3.new(
+            math.sin(t0 * 30) * FSp,
+            math.cos(t0 * 35) * FSp,
+            math.sin(t0 * 40) * FSp
+        )
+        mr.Velocity = mr.AssemblyLinearVelocity
+        mr.RotVelocity = mr.AssemblyAngularVelocity
+        if mr.Position.Y < -200 then
+            EndFling()
+        end
+    end)
+
+    if Mode == "Once" then
+        task.delay(1.5, function()
+            if FS.Active then EndFling() end
+        end)
+    elseif Mode == "T5" then
+        task.delay(5, function()
+            if FS.Active then EndFling() end
+        end)
+    elseif Mode == "T10" then
+        task.delay(10, function()
+            if FS.Active then EndFling() end
+        end)
+    elseif Mode == "Loop" then
+        task.spawn(function()
+            while LoopFlingEnabled and FS.Active do
+                task.wait(0.1)
+            end
+            if not LoopFlingEnabled and FS.Active then
+                EndFling()
+            end
+            task.wait(1)
+            if LoopFlingEnabled and FlingTargetName then
+                local tg = Players:FindFirstChild(FlingTargetName)
+                if tg and tg.Character and tg.Character:FindFirstChild("HumanoidRootPart") then
+                    FlingLogic(FlingTargetName, "Loop")
+                end
+            end
+        end)
+    end
+end
+
+local FlingActionSection = FlingTab:Section({ Title = "甩飞操作" })
+
+UIComponents.LoopFling = FlingActionSection:Toggle({
+    Title = "循环甩飞",
+    Value = false,
+    Callback = function(v)
+        LoopFlingEnabled = v
+        Cfg.LoopFling = v
+        if v and FlingTargetName then
+            FlingLogic(FlingTargetName, "Loop")
+        elseif not v and FS.Active then
+            EndFling()
+        end
+    end
+})
+
+FlingActionSection:Button({
+    Title = "甩飞 (1.5秒)",
+    Callback = function()
+        if FlingTargetName then FlingLogic(FlingTargetName, "Once") end
+    end
+})
+
+FlingActionSection:Button({
+    Title = "强力 (5秒)",
+    Callback = function()
+        if FlingTargetName then FlingLogic(FlingTargetName, "T5") end
+    end
+})
+
+FlingActionSection:Button({
+    Title = "毁灭 (10秒)",
+    Callback = function()
+        if FlingTargetName then FlingLogic(FlingTargetName, "T10") end
+    end
+})
+
+FlingActionSection:Button({
+    Title = "紧急停止",
+    Callback = function()
+        LoopFlingEnabled = false
+        pcall(function() UIComponents.LoopFling:Set(false) end)
+        EndFling()
+    end
+})
+
+FlingActionSection:Button({
+    Title = "传送到身后",
+    Callback = function()
+        if not FlingTargetName then return end
+        local tg = Players:FindFirstChild(FlingTargetName)
+        if tg and tg.Character and tg.Character:FindFirstChild("HumanoidRootPart") then
+            local _, r = GetCharParts()
+            if r then
+                r.CFrame = tg.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+                WindUI:Notify({Title = "传送", Content = "已瞬移", Duration = 2})
+            end
+        end
+    end
+})
+
+-- ==================== 修复10: 监视退出后正确恢复速度 ====================
+local MonitorEnabled = false
+UIComponents.MonitorToggle = FlingActionSection:Toggle({
+    Title = "监视玩家",
+    Value = false,
+    Callback = function(v)
+        MonitorEnabled = v
+        Cfg.MonitorToggle = v
+        if not v then
+            local _, _, h = GetCharParts()
+            if h then
+                Camera.CameraSubject = h
+                -- 恢复到正确的速度，而不是写死16
+                if SpeedEnabled then
+                    -- 速度修改模式下不改WalkSpeed，由Heartbeat处理
+                elseif not AntiSlowdownEnabled then
+                    h.WalkSpeed = 16
+                end
+                h.JumpPower = 50
+            end
+        end
+    end
+})
+
+-- ==================== Doors标签 ====================
+local DoorsTab = Window:Tab({ Title = "Doors", Icon = "home" })
+local DoorsSection = DoorsTab:Section({ Title = "常用脚本" })
+
+DoorsSection:Button({
+    Title = "MS Hax",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/TheHunterSolo1/Scripts/refs/heads/main/Protected_2809220311826785.lua.txt"))()
+        end)
+    end
+})
+
+DoorsSection:Button({
+    Title = "Sensation V2",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://rawscripts.net/raw/FLOOR-2-DOORS-Sensation-V2-20105"))()
+        end)
+    end
+})
+
+DoorsSection:Button({
+    Title = "Shark Hub",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/sharksharksharkshark/shark-shark-shark-shark-shark/main/shark-scriptlollol.txt"))()
+        end)
+    end
+})
+
+local DoorsModeSection = DoorsTab:Section({ Title = "模式选择" })
+
+DoorsModeSection:Button({
+    Title = "硬核模式",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/daiayday/HardcoreRemastered/refs/heads/main/obf_L6zO2N0sG5ehDHd56JBc5z70TZ2piVOvIqsgE88741HXGrwv7E4qd6c8axu8z4oh.lua.txt"))()
+        end)
+    end
+})
+
+DoorsModeSection:Button({
+    Title = "不可能模式",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Ukazix/impossible-mode/main/Protected_79.lua.txt"))()
+        end)
+    end
+})
+
+-- ==================== 脚本标签 ====================
+local ScriptsTab = Window:Tab({ Title = "脚本", Icon = "list" })
+local ScriptsSection = ScriptsTab:Section({ Title = "脚本列表" })
+
+ScriptsSection:Button({
+    Title = "天空脚本",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/hdjsjjdgrhj/script-hub/refs/heads/main/skyhub"))()
+        end)
+    end
+})
+
+ScriptsSection:Button({
+    Title = "RB Hub",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Yungengxin/roblox/refs/heads/main/Rb-Hub"))()
+        end)
+    end
+})
+
+ScriptsSection:Button({
+    Title = "浮萍脚本",
+    Callback = function()
+        pcall(function()
+            loadstring("\108\111\97\100\115\116\114\105\110\103\40\103\97\109\101\58\72\116\116\112\71\101\116\34\104\116\116\112\115\58\47\47\114\97\119\46\103\105\116\104\117\98\117\115\101\114\99\111\110\116\101\110\116\46\99\111\109\47\84\72\68\90\69\80\47\100\117\99\107\119\101\101\100\45\99\101\110\116\101\114\86\50\47\109\97\105\110\47\37\69\53\37\56\57\37\56\68\37\69\56\37\65\56\37\56\48\34\41\40\41\10")()
+        end)
+    end
+})
+
+ScriptsSection:Button({
+    Title = "XK Hub",
+    Callback = function()
+        pcall(function()
+            loadstring(game:HttpGet("https://github.com/devslopo/DVES/raw/main/XK%20Hub"))()
+        end)
+    end
+})
+
+-- ==================== 系统设置标签 ====================
+local SettingsTab = Window:Tab({ Title = "系统设置", Icon = "settings" })
+local SettingsSection = SettingsTab:Section({ Title = "界面快捷键" })
+local MenuKeybind = Enum.KeyCode.RightShift
+
+UIComponents.MenuKeybindDrop = SettingsSection:Dropdown({
+    Title = "选择隐藏/显示快捷键",
+    Values = {"RightShift", "RightControl", "LeftAlt", "LeftControl", "Insert", "Delete"},
+    Value = "RightShift",
+    Multi = false,
+    Callback = function(val)
+        if val then
+            MenuKeybind = Enum.KeyCode[val]
+            Cfg.MenuKeybindDrop = val
+        end
+    end
+})
+
+SafeConnect(UserInputService.InputBegan, function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == MenuKeybind then
+        if TargetGui then
+            TargetGui.Enabled = not TargetGui.Enabled
+        end
+    end
+end)
+
+SettingsSection:Dropdown({
+    Title = "主题",
+    Values = {"Dark", "Light", "Mocha", "Aqua", "Rose"},
+    Value = "Dark",
+    Multi = false,
+    Callback = function(Value)
+        pcall(function() Window:SetTheme(Value) end)
+    end
+})
+
+SettingsSection:Toggle({
+    Title = "透明背景",
+    Value = true,
+    Callback = function(Value)
+        pcall(function() Window:SetTransparency(Value) end)
+    end
+})
+
+-- ==================== 配置管理 ====================
+local ConfigSection = SettingsTab:Section({ Title = "配置管理 (存入C盘 workspace)" })
+local ConfigFolder = "FeiGeConfigs"
+if isfolder and not isfolder(ConfigFolder) then
+    pcall(makefolder, ConfigFolder)
+end
+
+local function GetConfigs()
+    local list = {}
+    if listfiles then
+        for _, file in pairs(listfiles(ConfigFolder)) do
+            local name = file:match("([^/%\\]+)%.json$")
+            if name then
+                table.insert(list, name)
+            end
+        end
+    end
+    if #list == 0 then return {"Default"} end
+    return list
+end
+
+local CurrentConfigName = "Default"
+
+ConfigSection:Input({
+    Title = "输入配置名称 (保存用)",
+    Placeholder = "写个名字...",
+    Callback = function(text)
+        if text and text ~= "" then
+            CurrentConfigName = text
+        end
+    end
+})
+
+local ConfigDropdown = ConfigSection:Dropdown({
+    Title = "选择现有配置 (加载用)",
+    Values = GetConfigs(),
+    Value = "Default",
+    Multi = false,
+    Callback = function(val)
+        if val then CurrentConfigName = val end
+    end
+})
+
+ConfigSection:Button({
+    Title = "💾 保存当前配置",
+    Callback = function()
+        if not writefile then
+            return WindUI:Notify({Title = "错误", Content = "你的注入器不支持保存", Duration = 3})
+        end
+        local s, err = pcall(writefile, ConfigFolder .. "/" .. CurrentConfigName .. ".json", HttpService:JSONEncode(Cfg))
+        if s then
+            WindUI:Notify({Title = "配置系统", Content = "已保存: " .. CurrentConfigName, Duration = 2})
+        else
+            WindUI:Notify({Title = "错误", Content = "保存失败: " .. tostring(err), Duration = 3})
+        end
+        pcall(function() ConfigDropdown:Refresh(GetConfigs()) end)
+    end
+})
+
+-- ==================== 修复11: 配置加载确保回调触发 ====================
+ConfigSection:Button({
+    Title = "🔄 加载所选配置",
+    Callback = function()
+        if not readfile then
+            return WindUI:Notify({Title = "错误", Content = "你的注入器不支持读取", Duration = 2})
+        end
+        local filePath = ConfigFolder .. "/" .. CurrentConfigName .. ".json"
+        if not isfile(filePath) then
+            return WindUI:Notify({Title = "错误", Content = "找不到配置: " .. CurrentConfigName, Duration = 2})
+        end
+        local s, encoded = pcall(readfile, filePath)
+        if not s then
+            return WindUI:Notify({Title = "错误", Content = "读取失败", Duration = 2})
+        end
+        local s2, data = pcall(HttpService.JSONDecode, HttpService, encoded)
+        if not s2 or type(data) ~= "table" then
+            return WindUI:Notify({Title = "错误", Content = "配置格式错误", Duration = 2})
+        end
+
+        local toggleKeys = {
+            "SpeedToggle", "SuperToggle", "InfJump", "Noclip", "AntiVoid", "AntiSlowdown",
+            "RainbowESP", "LoopFog", "NV", "LNV", "FovLock", "FB", "NP",
+            "AimOn", "AimTeamCheck", "AimNotify", "AimStickyLock",
+            "LoopFling", "MonitorToggle"
+        }
+        local sliderKeys = {
+            "SpeedSlider", "MultiSlider", "FOVSlider",
+            "AimFov", "AimSmooth", "AimPred", "AimMaxDist",
+            "FVS", "FSS", "FFS", "FMS", "FRS",
+            "AntiSlowMinSpeedSlider", "AntiSlowMinJumpSlider"
+        }
+        local dropdownKeys = {
+            "AimKeyMode", "AimKeyBind", "AimPartDrop", "AimPriority",
+            "FlingTarget", "MenuKeybindDrop"
+        }
+
+        -- 先加载slider（因为toggle的回调可能依赖slider的值）
+        for _, key in ipairs(sliderKeys) do
+            if data[key] ~= nil and UIComponents[key] then
+                pcall(function() UIComponents[key]:Set(data[key]) end)
+            end
+        end
+        task.wait(0.1)
+        -- 再加载dropdown
+        for _, key in ipairs(dropdownKeys) do
+            if data[key] ~= nil and UIComponents[key] then
+                -- 尝试多种方法设置dropdown
+                pcall(function() UIComponents[key]:Set(data[key]) end)
+                pcall(function() UIComponents[key]:Select(data[key]) end)
+            end
+        end
+        task.wait(0.1)
+        -- 最后加载toggle
+        for _, key in ipairs(toggleKeys) do
+            if data[key] ~= nil and UIComponents[key] then
+                pcall(function() UIComponents[key]:Set(data[key]) end)
+            end
+        end
+
+        WindUI:Notify({Title = "配置系统", Content = "成功加载配置: " .. CurrentConfigName, Duration = 2})
+    end
+})
+
+ConfigSection:Button({
+    Title = "🗑️ 刷新列表",
+    Callback = function()
+        pcall(function() ConfigDropdown:Refresh(GetConfigs()) end)
+    end
+})
+
+ConfigSection:Button({
+    Title = "🗑️ 删除所选配置",
+    Callback = function()
+        if not delfile then
+            return WindUI:Notify({Title = "错误", Content = "注入器不支持删除文件", Duration = 2})
+        end
+        local filePath = ConfigFolder .. "/" .. CurrentConfigName .. ".json"
+        if isfile and isfile(filePath) then
+            pcall(delfile, filePath)
+            WindUI:Notify({Title = "配置系统", Content = "已删除: " .. CurrentConfigName, Duration = 2})
+            pcall(function() ConfigDropdown:Refresh(GetConfigs()) end)
+        else
+            WindUI:Notify({Title = "错误", Content = "文件不存在", Duration = 2})
+        end
+    end
+})
+
+local InfoSection = SettingsTab:Section({ Title = "信息" })
+InfoSection:Button({ Title = "防挂机已自动启用", Callback = function() end })
+InfoSection:Button({ Title = "v5.1 修复: 强力视野锁定/反减速/穿墙重生/性能优化", Callback = function() end })
+
+-- ==================== 卸载 ====================
+local UnloadSection = SettingsTab:Section({ Title = "卸载" })
+UnloadSection:Button({
+    Title = "完全卸载",
+    Callback = function()
+        _G.RBESP = false
+        AimEnabled = false
+        SpeedEnabled = false
+        SuperEnabled = false
+        InfJumpEnabled = false
+        NoclipEnabled = false
+        AntiVoidEnabled = false
+        AntiSlowdownEnabled = false
+        MonitorEnabled = false
+        LoopFlingEnabled = false
+        FovLockEnabled = false
+
+        if ghostOn then ToggleGhost() end
+        if FS.Active then EndFling() end
+
+        for _, cn in pairs(AllConnections) do
+            pcall(function() cn:Disconnect() end)
+        end
+        AllConnections = {}
+
+        if _G.FL then pcall(function() _G.FL:Disconnect() end); _G.FL = nil end
+        if _G.FL2 then pcall(function() _G.FL2:Disconnect() end); _G.FL2 = nil end
+        if _G.LV then pcall(function() _G.LV:Disconnect() end); _G.LV = nil end
+        if _G._NPConn then pcall(function() _G._NPConn:Disconnect() end); _G._NPConn = nil end
+        if _G._FGInfJumpConn then pcall(function() _G._FGInfJumpConn:Disconnect() end); _G._FGInfJumpConn = nil end
+        if _fovChangedConn then pcall(function() _fovChangedConn:Disconnect() end); _fovChangedConn = nil end
+
+        local _, _, hum = GetCharParts()
+        if hum then
+            hum.WalkSpeed = 16
+            hum.JumpPower = 50
+            Camera.CameraSubject = hum
+        end
+
+        Camera.FieldOfView = 70
+        Lighting.Ambient = Color3.new(0, 0, 0)
+        Lighting.Brightness = 1
+        Lighting.GlobalShadows = true
+
+        for _, p in pairs(Players:GetPlayers()) do
+            if p.Character then
+                local fg = p.Character:FindFirstChild("FGH")
+                if fg then fg:Destroy() end
+            end
+        end
+
+        local container = gethui and gethui() or CoreGui
+        for _, g in pairs(container:GetChildren()) do
+            if g.Name == "FGMobile" then g:Destroy() end
+        end
+        for _, g in pairs(CoreGui:GetChildren()) do
+            if g.Name == "FGMobile" then g:Destroy() end
+        end
+
+        if TargetGui then TargetGui:Destroy() end
+
+        WindUI:Notify({Title = "卸载", Content = "已完全卸载", Duration = 2})
+    end
+})
+
+-- ==================== 主循环 ====================
+local monCD = 0
+
+-- 初始化防虚空位置
+task.spawn(function()
+    task.wait(1)
+    local _, root = GetCharParts()
+    if root and root.Position.Y > -50 then
+        lastVY = root.CFrame
+    end
+end)
+
+-- ==================== 修复12: 反减速用更高频方式 + 属性变更监听 ====================
+local _antiSlowConns = {}
+
+local function SetupAntiSlowdown(hum)
+    -- 清除旧连接
+    for _, c in pairs(_antiSlowConns) do
+        pcall(function() c:Disconnect() end)
+    end
+    _antiSlowConns = {}
+
+    if not AntiSlowdownEnabled then return end
+
+    -- 监听WalkSpeed变更
+    local c1 = hum:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+        if AntiSlowdownEnabled and hum.WalkSpeed < AntiSlowMinSpeed then
+            hum.WalkSpeed = AntiSlowMinSpeed
+        end
+    end)
+    table.insert(_antiSlowConns, c1)
+    table.insert(AllConnections, c1)
+
+    -- 监听JumpPower变更
+    local c2 = hum:GetPropertyChangedSignal("JumpPower"):Connect(function()
+        if AntiSlowdownEnabled and hum.JumpPower < AntiSlowMinJump then
+            hum.JumpPower = AntiSlowMinJump
+        end
+    end)
+    table.insert(_antiSlowConns, c2)
+    table.insert(AllConnections, c2)
+
+    -- 监听JumpHeight变更 (R15)
+    local c3 = hum:GetPropertyChangedSignal("JumpHeight"):Connect(function()
+        if AntiSlowdownEnabled and hum.JumpHeight < 7.2 then
+            hum.JumpHeight = 7.2
+        end
+    end)
+    table.insert(_antiSlowConns, c3)
+    table.insert(AllConnections, c3)
+end
+
+-- 初始设置
+task.spawn(function()
+    task.wait(0.5)
+    local _, _, hum = GetCharParts()
+    if hum then SetupAntiSlowdown(hum) end
+end)
+
+SafeConnect(RunService.Heartbeat, function(dt)
+    local char, root, hum = GetCharParts()
+    if not char or not root or not hum then return end
+
+    -- 监视模式
+    if MonitorEnabled then
+        monCD = monCD + dt
+        if monCD >= 0.1 then
+            monCD = 0
+            if FlingTargetName then
+                local tg = Players:FindFirstChild(FlingTargetName)
+                if tg and tg.Character and tg.Character:FindFirstChild("Humanoid") then
+                    Camera.CameraSubject = tg.Character.Humanoid
+                end
+            end
+            hum.WalkSpeed = 0
+            hum.JumpPower = 0
+        end
+        return
+    end
+
+    -- 速度
+    if hum.MoveDirection.Magnitude > 0 then
+        if SpeedEnabled then
+            root.AssemblyLinearVelocity = Vector3.new(
+                hum.MoveDirection.X * SpeedValue,
+                root.AssemblyLinearVelocity.Y,
+                hum.MoveDirection.Z * SpeedValue
+            )
+        elseif SuperEnabled then
+            root.CFrame = root.CFrame + (hum.MoveDirection * (dt * 60 * MultiValue))
+            root.AssemblyLinearVelocity = Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
+        end
+    end
+
+    -- 无限跳 (PC端按键检测)
+    if InfJumpEnabled and UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+        pcall(function() hum:ChangeState(Enum.HumanoidStateType.Jumping) end)
+    end
+
+    -- 穿墙
+    if NoclipEnabled then
+        for _, v in pairs(char:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.CanCollide = false
+            end
+        end
+    end
+
+    -- 防掉虚空
+    if AntiVoidEnabled then
+        if root.Position.Y < -50 then
+            if lastVY then
+                root.CFrame = lastVY
+                root.AssemblyLinearVelocity = Vector3.zero
+                root.AssemblyAngularVelocity = Vector3.zero
+            else
+                -- 没有保存位置，传送到安全位置
+                root.CFrame = CFrame.new(0, 50, 0)
+                root.AssemblyLinearVelocity = Vector3.zero
+            end
+        else
+            lastVY = root.CFrame
+        end
+    end
+
+    -- 反减速 (Heartbeat层面的备用)
+    if AntiSlowdownEnabled then
+        if hum.WalkSpeed < AntiSlowMinSpeed then hum.WalkSpeed = AntiSlowMinSpeed end
+        if hum.JumpPower < AntiSlowMinJump then hum.JumpPower = AntiSlowMinJump end
+    end
+end)
+
+-- ==================== 修复13: 角色重生后重新应用所有状态 ====================
+SafeConnect(LocalPlayer.CharacterAdded, function(char)
+    task.wait(1)
+
+    -- 防虚空位置重置
+    lastVY = nil
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if root and root.Position.Y > -50 then
+        lastVY = root.CFrame
+    end
+
+    -- 甩飞重置
+    if FS.Active then
+        FS.Active = false
+        if FS.Conn then FS.Conn:Disconnect(); FS.Conn = nil end
+        FS.OPos = nil
+    end
+
+    -- 重新设置反减速监听
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum and AntiSlowdownEnabled then
+        SetupAntiSlowdown(hum)
+    end
+
+    -- 重新设置相机
+    if hum then
+        Camera.CameraSubject = hum
+    end
+
+    -- 视野锁定
+    if FovLockEnabled then
+        Camera.FieldOfView = FovValue
+    end
+end)
+
+WindUI:Notify({Title = "飞哥脚本中心", Content = "v5.1 加载完成", Duration = 5})
+WindUI:Notify({Title = "系统", Content = "防挂机已自动启用", Duration = 3})
